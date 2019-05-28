@@ -69,14 +69,15 @@ class Lattice:
         from numpy import transpose, array, equal
         inv_lattice = inv(self.Lv.transpose())        
         d_space_vector = [ list(dot(inv_lattice, array(b))) for b in self.Bv ]
+#############################################################################################################
+#        output = []
+#        for i in d_space_vector:
+#            if i not in output:
+#                output.append(_chop_all(epsilon, i)) #no idea where this _chop_all function is. can't use it
 
-        output = []
-        for i in d_space_vector:
-            if i not in output:
-                output.append(_chop_all(epsilon, i))
-
-        return output
-
+#        return output
+        return d_space_vector #just return the d_space_vector instead
+#############################################################################################################  
     
     def Lv_strings(self,nolatpar = False):
         if nolatpar:
@@ -302,7 +303,52 @@ class Crystal(object):
         crosses = [cross(v[0], v[1]) for v in groupings]
         dots = [dot(self.lattice[i], crosses[i]) for i in [0,1,2]]
         return [crosses[i]/dots[i] for i in [0,1,2]]
+################################################################################
+##############
+ 
+    @property
+    def Lv_cartesian(self):
+        '''returns the magnitude of each lattice vector... should maybe be called Lv_polar'''
+        from numpy.linalg import norm
+        #calculate magnitudes of each lattice vector
+        params = [norm(self.lattice[i])*self.latpar for i in [0,1,2]]
+        return params
 
+    @property
+    def Lv_angles(self):
+        '''return the angles between lattice vectors'''
+        from numpy import dot, array, arccos, pi
+        from numpy.linalg import norm
+        #calculate angles between lattice vectors
+        groupings = [ [ self.lattice[1], self.lattice[2] ],
+                      [ self.lattice[2], self.lattice[0] ], 
+                      [ self.lattice[0], self.lattice[1] ] ]
+        dots = [dot(v[0], v[1]) for v in groupings]
+        mags = [norm(v[0])*norm(v[1]) for v in groupings]
+        angles = [arccos(dots[i]/mags[i])*180/pi for i in [0,1,2]]
+        return angles
+
+    #copied from the Lattice object
+    @property
+    def Bv_direct(self):
+        '''returns the basis in direct coordinates, whether it started as Direct or not'''
+        from numpy import sum as nsum, array, dot
+        if self.coordsys[0].upper() == 'D':
+            return self.basis
+
+        from numpy.linalg import inv
+        from numpy import transpose, array, equal
+        inv_lattice = inv(self.lattice.transpose())        
+        d_space_vector = [ list(dot(inv_lattice, array(b))) for b in self.basis ]
+
+#        output = []
+#        for i in d_space_vector:
+#            if i not in output:
+#                output.append(_chop_all(epsilon, i))
+
+#        return output
+        return d_space_vector
+#################################################################################################
 
     @property
     def volume(self):
@@ -414,6 +460,31 @@ class Crystal(object):
             lines += '\n'
 
         return lines[:-1]
+
+######################################################################################
+    @property
+    def basis_lines_cif(self):
+        ''' Returns basis vectors formatted for .cif files '''
+        speciesList = []
+        for i in range(self.nTypes):
+            speciesList += [self.species[i] for x in range(self.atom_counts[i])]
+        numList = []
+        #this could probably be a list comprehension but I'm not sure how to do it
+        for i in range(self.nTypes):
+            for j in range(self.atom_counts[i]):
+                numList.append(j+1)
+                
+        #write the lines that should look like "A1 A 0.0 0.0 0.0 1.0"
+        lines = ''
+        for idx,i in enumerate(self.Bv_direct): #CIF is written in direct coordinates
+            lines += speciesList[idx] 
+            lines += str(numList[idx])  + ' '
+            lines += speciesList[idx] + ' '
+            lines += ' '.join(map(str,i))
+            lines += ' 1.0 \n'
+
+        return lines
+#######################################################################################
 
     @property
     def unknown(self):
@@ -687,7 +758,124 @@ class Crystal(object):
         # everything that's inside of crystal
         #    lines = POSCAR(self)
         #lines.write(filepath,vasp=True)
+
+#################################################################
+    #generate a cif file from a POSCAR
+    def generate_cif(self):
+        import shutil
+        from jinja2 import Environment, PackageLoader  # Package for building files from a template
+        from os import path
+        import aBuild
+                                                                 
+        medpath = path.abspath(aBuild.__file__)
+        reporoot = path.dirname(path.dirname(medpath))
+        #build the library to fill the template with
+        settings = {}
+        settings["lpara"] = self.Lv_cartesian[0]
+        settings["lparb"] = self.Lv_cartesian[1]
+        settings["lparc"] = self.Lv_cartesian[2]
+        settings["alpha"] = self.Lv_angles[0]
+        settings["beta"] = self.Lv_angles[1]
+        settings["gamma"] = self.Lv_angles[2]
+        settings["bVs"] = self.basis_lines_cif
+        settings["title"] = self.title
+        #find the template (template.cif)
+        env = Environment(loader=PackageLoader('aBuild', 'templates'))
+        template = env.get_template("template.cif")
+        # make the label for the file
+        fileName = str(settings["title"].split("_")[0])+".cif"
+        #write the .cif file
+        with open(fileName,'w') as f:
+            f.write(template.render(**settings))
+
+
+            
+    #If I want to make a crystal AFM, I need to assign spin to the specified atoms so they
+    #line up in a specified plane
+    def get_spin(self,plane,spinType):
+        from numpy import dot, zeros, array
+        
+        #find the layers of the magnetic substance
+        layer_values = self.AFM_layers( plane , spinType )
+        #find the indices that correspond to atoms with spin
+        indices = self.which_atoms_spin(spinType)
+
+        #if it's an even number of layers, great, it preserved the periodicity of the crystal
+        #if not, do something else
+        if len(layer_values) % 2 == 1:
+            print("Not an even number of planes in the {} direction.".format(plane) )
+            spins = [] ############################################# DO SOMETHING HERE. TOSS OUT THE STRUCTURE?
+        else:           
+            #convert to cartesian
+            bases = self.Bv_cartesian
+            #keep track of the spins. 0 if it's not the species specified
+            spins = zeros(self.nAtoms)
+            #for each layer value, assign appropriate spin
+            for i in range(len(layer_values)):
+                #loop over the bases with spin
+                for j in range(indices[0],indices[1]):
+                    basis = bases[j]
+                    this_value = dot(basis,plane)
+                    #if the atom is in the layer we are investigating
+                    if abs(this_value - layer_values[i]) < 1e-3:
+                        #give it some spin
+                        if i % 2 == 0:
+                            spins[j] = 2.0
+                        else:
+                            spins[j] = -2.0
+        self.spins = spins
+
+        
+    # cartesian values of the layers for AFM
+    def AFM_layers(self,direction,spinType):
+        from numpy import dot
+
+        #convert to cartesian
+        bases = self.Bv_cartesian
+        layer_values = []
+
+        indices = self.which_atoms_spin(spinType)
+        
+        #loop over all the bases (of the atom type you want)
+        for i in range(indices[0],indices[1]):
+            basis = bases[i]
+            this_value = dot(basis,direction) #the value of the basis in the direction we are investigating
+            #add this_value to the list of layers if it's not already in the list
+            if this_value not in layer_values:
+                layer_values.append(this_value)
+
+        #if there's values that are (very close to) the same
+        for value in layer_values:
+            for i in range(len(layer_values)):
+                if abs(value - layer_values[i]) < 1e-3:
+                    layer_values[i] = float(value) #make them equal eachother
+
+        #now get rid of duplicates
+        new_layer_values = []
+        for value in layer_values:
+            if value not in new_layer_values:
+                new_layer_values.append(value)
+
+        #sort the layer_values in ascending order
+        new_layer_values.sort()
+
+        return new_layer_values
+
+    def which_atoms_spin(self,spinType):
+        from numpy import array
+        #figure out which bases need to have spin assigned
+        if spinType == 0:
+            basisNumStart = 0
+            basisNumEnd = self.atom_counts[0]
+        if spinType == 1:
+            basisNumStart = self.atom_counts[0]-1
+            basisNumEnd = basisNumStart + self.atom_counts[1]
+        if spinType == 2:
+            basisNumStart = self.atom_counts[0]+self.atom_counts[1]-1
+            basisNumEnd = basisNumStart + self.atom_counts[2]
+        return array( [basisNumStart,basisNumEnd] )
     
+################################################################# 
 
         
         

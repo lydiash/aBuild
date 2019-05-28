@@ -28,6 +28,11 @@ class Controller(object):
 
         # Read the input file
         self.specs = read(root,inputFile)
+#####################################################################################
+        self.special_settings = {}
+        if self.specs["calculator"]["vasp"]["AFM"]: #if there's an AFM section in the YAML
+            self.special_settings["AFM"] = self.specs["calculator"]["vasp"]["AFM"] #save the AFM settings to special_settings
+#####################################################################################
 
         if "directory" not in self.specs["calculator"]["vasp"]["potcars"] or self.specs["calculator"]["vasp"]["potcars"]["directory"] is None:
             print("You did not provide a directory for the POTCARS. Using the environment variable that I found: {}".format(config.POTCAR_DIR))
@@ -148,7 +153,7 @@ class Controller(object):
 
         self.dataset = "trainingset"
         trainingRoot = path.join(self.root,'training_set')
-        trainingSet = dataset(self.enumDicts,self.species)
+        trainingSet = dataset(self.enumDicts,self.species,special_settings = self.special_settings)######### ADDED SPECIAL_SETTINGS
         trainingSet.buildFolders(trainingRoot,self.calculator,runGetKpoints = runGetKpoints)
         
         
@@ -162,7 +167,7 @@ class Controller(object):
 
         self.dataset = 'gss'
         
-        thisMTP = MTP(fittingRoot,settings=self.fitting)
+        thisMTP = MTP(fittingRoot,settings=self.fitting,special_settings=self.special_settings)######ADDED SPECIAL_SETTINGS
         handler = {'setup_train':lambda: thisMTP.setup_train(trainingRoot,self.species),
                    'setup_relax':lambda:thisMTP.setup_relax(self.enumDicts,self.species),
                     'setup_select_add':lambda :thisMTP.setup_select()}
@@ -233,4 +238,14 @@ class Controller(object):
 
         data = dataset(dataFile,self.species)
         data.generateConvexHullPlot()
+############################################################
+    #generate a .cif file from the POSCAR provided
+    def generate_cif(self,groundStatePoscar):
+        from os import path
+        from aBuild.database.crystal import Crystal
+        
+        #generate the .cif file
+        input = Crystal(groundStatePoscar,self.species)
+        input.generate_cif()            
+############################################################
             

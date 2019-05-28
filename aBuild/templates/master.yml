@@ -10,8 +10,13 @@ root: '~/AuPt'
 # be applied to *all* the VASP calculations in all databases. They can
 # be overridden in each database.
 calculator:
-  build: 'vasp_and_lammps_and_qe'
+  active: 'vasp_and_lammps_and_qe'
   vasp:
+#####################################################################################
+    AFM: #if you'd like to make a structure antiferromagnetic, specify the details here
+      plane: [1,0,0] #plane to align spin on 
+      spin_type: 0 #which atom gets the spin. Remember the species list is in reverse alphabetical order
+#####################################################################################
     incar:
       prec: 'a'
       #  encut: 400

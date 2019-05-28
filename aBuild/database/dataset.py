@@ -11,6 +11,9 @@ class dataset:
 
         self.calculator = calculator
         self.species = systemSpecies
+#########################################################
+        self.special_settings=special_settings
+#########################################################
         
         if isinstance(dset,list):
             
@@ -57,18 +60,44 @@ class dataset:
                 enumController.enumerate()
 
             # Loop to generate random structures for a given lattice type
-            for i in range(eDict["nconfigs"]):
+######################################My changes ####################################################
+            i = 0
+            while i < eDict["nconfigs"]:
+#####################################################################################################
+            #for i in range(eDict["nconfigs"]): #############I COMMENTED THIS OUT
                 rStruct = randrange(1,enumController.nEnumStructs)
-                print('Adding {} structure # {} to database'.format(eDict["lattice"],rStruct) )
-                with open('structNums','a+') as f:
-                    f.write(eDict["lattice"] + ' ' + str(rStruct) + '\n')
-                    #print("Building VASP folder for {} structure #: {}".format(eDict["lattice"],rStruct))
-                enumController.generatePOSCAR(rStruct)
+##########################################my changes##################################################3
+                if self.special_settings["AFM"]: #if there's an AFM section in special settings, we don't want to add the
+                #crystal to the database if it can't be AFM. Check this case and only add if it works for AFM
+                    print('Checking if {} structure # {} can be AFM'.format(eDict["lattice"],rStruct) )
+                    enumController.generatePOSCAR(rStruct)
+                    poscarpath = path.join(enumController.root,"poscar.{}.{}".format(eDict["lattice"],rStruct))
+                    thisCrystal = Crystal(poscarpath, systemSpecies = systemSpecies)
+                    thisCrystal.get_spin( self.special_settings["AFM"]["plane"] , self.special_settings["AFM"]["spin_type"] )
+                    if len(thisCrystal.spins) != 0: #if some spins were found, it means it worked. add it to the database
+                        print('Success! Adding {} structure # {} to database'.format(eDict["lattice"],rStruct) )
+                        self.crystals.append(thisCrystal)
+                        with open('structNums','a+') as f:
+                            f.write(eDict["lattice"] + ' ' + str(rStruct) + '\n')
+                        i += 1
+                    else:
+                        print('Not adding {} structure # {} to database'.format(eDict["lattice"],rStruct) )
+                else: #if it's not AFM, don't check anything, just add the random structure to the database
+######################################################################################################
+                    print('Adding {} structure # {} to database'.format(eDict["lattice"],rStruct) )
+                    with open('structNums','a+') as f:
+                        f.write(eDict["lattice"] + ' ' + str(rStruct) + '\n')
+                        #print("Building VASP folder for {} structure #: {}".format(eDict["lattice"],rStruct))
+                    enumController.generatePOSCAR(rStruct)
 
                 
-                poscarpath = path.join(enumController.root,"poscar.{}.{}".format(eDict["lattice"],rStruct))
-                thisCrystal = Crystal(poscarpath, systemSpecies = systemSpecies) #title = ' '.join([self.enumDicts[index]["lattice"]," str #: {}"]).format(rStruct)
-                self.crystals.append(thisCrystal)
+                    poscarpath = path.join(enumController.root,"poscar.{}.{}".format(eDict["lattice"],rStruct))
+                    thisCrystal = Crystal(poscarpath, systemSpecies = systemSpecies) #title = ' '.join([self.enumDicts[index]["lattice"]," str #: {}"]).format(rStruct)
+                    self.crystals.append(thisCrystal)
+###########################################my changes###############################################
+                    i += 1
+                #whether the system is AFM or not, we need to delete the POSCAR if it's been looped over
+#####################################################################################################
                 delpath = path.join(enumController.root,"poscar.{}.{}".format(eDict["lattice"],rStruct))
                 remove(delpath)
 
@@ -154,7 +183,7 @@ class dataset:
         #    def write(self):
 
         
-    def buildFolders(self,buildpath,calculator,runGetKpoints = True,foldername = 'E'):
+    def buildFolders(self,buildpath,calculator,special_settings = None,runGetKpoints = True,foldername = 'E'):######ADDED SPECIAL_SETTINGS
         from os import path
         from aBuild.calculators.vasp import VASP
         from aBuild.calculators.lammps import LAMMPS
@@ -181,6 +210,10 @@ class dataset:
                       'lammps': lambda obj: obj.buildFolder()} 
 
         for crystal in self.crystals:
+################################################################################
+#            if special_settings["AFM"]: #if there's an AFM section in special settings
+#                crystal.get_spin( special_settings["AFM"]["plane"] , special_settings["AFM"]["spin_type"] ) #go get the spins
+################################################################################
             # Initialize the calculation object
             thisCalc = lookupCalc[calculator["active"]](lookupSpecs[calculator["active"]](crystal))
                                   

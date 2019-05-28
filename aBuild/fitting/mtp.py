@@ -5,13 +5,16 @@ class MTP(object):
 	
 
 
-    def __init__(self,root,settings = None):
+    def __init__(self,root,settings = None,special_settings=None): ############ADDED SPECIAL_SETTINGS
         from os import makedirs,path
         if not path.isdir(root):
             makedirs(root)
 
         self.root = root
         self.settings = settings
+###################################################################################################
+        self.special_settings = special_settings
+###############################################################################################
         #        self.trainingSet = trainingSet  # Should be a list of Crystal objects
 
     @property
@@ -359,6 +362,13 @@ class MTP(object):
                     thisCrystal = Crystal(path.join(enumLattice.root,"poscar.{}.{}".format(lat,struct)),species)
 #                    print(thisCrystal.appMinDist,' approp Min Dist')
  #                   print(thisCrystal.minDist, 'actual min dist')
+################################################################################################################
+                    if self.special_settings["AFM"]: #if there's a AFM dictionary passed in in the special_settings
+                        if len( thisCrystal.AFM_layers(self.special_settings["AFM"]["direction"],self.special_settings["AFM"]["spin_type"]) ) % 2 == 0: #check if it can be AFM or not
+                            with open(path.join(self.root,'to-relax.cfg'),'a+') as f: #if it can, write this structure to the file
+                                f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
+                    else: #if there's no special AFM settings, write to the file
+################################################################################################################
                     with open(path.join(self.root,'to-relax.cfg'),'a+') as f:
                         f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
 

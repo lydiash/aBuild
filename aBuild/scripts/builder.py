@@ -4,6 +4,7 @@ from aBuild.io import read
 
 script_options = {
     "dbspec": {"help": "File containing the database specifications."},
+    "-POSCAR": {"help": "When converting a POSCAR to a cif, you can supply the path to the POSCAR here.",'type':str},
     "-enum": {"action": "store_true",
            "help": "Enumerate derivative superstructures."},
     "-write": {"action": "store_true",
@@ -12,6 +13,8 @@ script_options = {
            "help": "Build input files for fitting."},
     "-report": {"action": "store_true",
            "help": "Build a report of the results of the calculations."},
+    "-cif": {"action": "store_true",
+           "help": "Build a cif file for the POSCAR specified by the -POSCAR tag"},
     "-rgk": {"action": "store_true",
            "help": "Do you want to run the getKpoint script?."},
     "-s": {"action": "store_true",
@@ -89,6 +92,7 @@ def run(args):
     from aBuild import Controller
 
     cdb = Controller(args.dbspec)
+    print(args.POSCAR,'POSCAR')
     if args.enum:
         cdb.enumerate('trainingset')
     if args.write:
@@ -97,6 +101,10 @@ def run(args):
         cdb.setupHandler('mtp','setup_train')
     if args.status:
         cdb.statusReport()
+##################################################################
+    if args.cif:
+        cdb.generate_cif(args.POSCAR)
+##################################################################
     if args.setup_relax:
         cdb.setupHandler('mtp','setup_relax')
     if args.setup_select_add:

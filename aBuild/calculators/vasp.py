@@ -33,6 +33,14 @@ class VASP:
                 self.crystal = specs["crystal"]
             else:
                 self.crystal = Crystal(specs["crystal"],systemSpecies)
+###############################################################################
+            if len(self.crystal.spins) != 0: #if there's spins on the crystal object, this means it's got some sort of magnetic moments. Make INCAR tags for this
+                spin_line = ''
+                for i,val in enumerate(self.crystal.spins):
+                    spin_line += str(val) + ' '
+                self.INCAR.add_tag("ISPIN",str(2) )
+                self.INCAR.add_tag("MAGMOM",spin_line)
+###############################################################################
         elif isinstance(specs, str):
             self.POTCAR = POTCAR(path.join(specs,'POTCAR'))
             self.KPOINTS = KPOINTS(path.join(specs,'KPOINTS'))
@@ -404,7 +412,10 @@ class INCAR:
         else:
             self.setDefaultTags()
 
-
+#################################################
+    def add_tag(self,key,value):
+        self.tags[key] = value
+#################################################
         
     def _init_file(path,filename = 'INCAR'):
         with open(path,'r') as f:
