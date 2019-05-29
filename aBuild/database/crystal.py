@@ -801,10 +801,12 @@ class Crystal(object):
         indices = self.which_atoms_spin(spinType)
 
         #if it's an even number of layers, great, it preserved the periodicity of the crystal
-        #if not, do something else
-        if len(layer_values) % 2 == 1:
+        #if not, return an empty list of spins
+        if layer_values == 0:
+            spins = [] #the lattice vectors didn't work for AFM. return an empty list of spins
+        elif len(layer_values) % 2 == 1:
             print("Not an even number of planes in the {} direction.".format(plane) )
-            spins = [] ############################################# DO SOMETHING HERE. TOSS OUT THE STRUCTURE?
+            spins = [] #return an empty list of spins. This means we can't use this as an AFM structure
         else:           
             #convert to cartesian
             bases = self.Bv_cartesian
@@ -817,7 +819,8 @@ class Crystal(object):
                     basis = bases[j]
                     this_value = dot(basis,plane)
                     #if the atom is in the layer we are investigating
-                    if abs(this_value - layer_values[i]) < 1e-3:
+                    diff = abs(this_value - layer_values[i])
+                    if diff < 1e-3:
                         #give it some spin
                         if i % 2 == 0:
                             spins[j] = 2.0
@@ -830,6 +833,19 @@ class Crystal(object):
     def AFM_layers(self,direction,spinType):
         from numpy import dot
 
+        #first we want to check if the lattice vectors are friendly to AFM structures.
+        test = [ dot(self.lattice[i],direction) for i in [0,1,2] ]
+        tally = 0
+        for i in range( len(test) ):
+            #if the lattice points in the direction we are searching, add one to the tally
+            if abs(test[i]) > 1e-3:
+                tally += 1
+        #if more than one lattice vector points in the direction we're searching, it won't work for AFM
+        if tally != 1:
+            print("These lattice vectors aren't nice for AFM.")
+            return 0 #return 0. Must check for this case
+
+        #if the lattice vectors are friendly, now calculate the layers
         #convert to cartesian
         bases = self.Bv_cartesian
         layer_values = []

@@ -80,7 +80,7 @@ def cat(files, target,remove = False):
             with open(fname) as infile:
                 for line in infile:
                     outfile.write(line)
-    if remov:
+    if remove:
         for file in files:
             remove(file)
     

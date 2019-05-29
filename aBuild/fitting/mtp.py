@@ -364,13 +364,15 @@ class MTP(object):
  #                   print(thisCrystal.minDist, 'actual min dist')
 ################################################################################################################
                     if self.special_settings["AFM"]: #if there's a AFM dictionary passed in in the special_settings
-                        if len( thisCrystal.AFM_layers(self.special_settings["AFM"]["direction"],self.special_settings["AFM"]["spin_type"]) ) % 2 == 0: #check if it can be AFM or not
-                            with open(path.join(self.root,'to-relax.cfg'),'a+') as f: #if it can, write this structure to the file
-                                f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
+                        layers = thisCrystal.AFM_layers(self.special_settings["AFM"]["direction"],self.special_settings["AFM"]["spin_type"] ) #check if this crystal can be AFM
+                        if layers != 0: #if the lattice vectors work for AFM
+                            if len( layers ) % 2 == 0: #and there's an even number of layers
+                                with open(path.join(self.root,'to-relax.cfg'),'a+') as f: #write this structure to the file
+                                    f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
                     else: #if there's no special AFM settings, write to the file
 ################################################################################################################
-                    with open(path.join(self.root,'to-relax.cfg'),'a+') as f:
-                        f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
+                        with open(path.join(self.root,'to-relax.cfg'),'a+') as f:
+                            f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
 
                     delpath = path.join(enumLattice.root,"poscar.{}.{}".format(lat,struct))
                     remove(delpath)
@@ -402,7 +404,7 @@ class MTP(object):
         candIterationFiles = glob(path.join(self.root,"candidate_iteration_*"))
         relaxedIterationFiles = glob(path.join(self.root,"relaxed_iteration_*"))
         unrelaxedIterationFiles = glob(path.join(self.root,"unrelaxed_iteration_*"))
-        if len(candIterationsFiles) != len(relaxedIterationFiles) or len(candIterationsFiles) != len(unrelaxedIterationFiles):
+        if len(candIterationFiles) != len(relaxedIterationFiles) or len(candIterationFiles) != len(unrelaxedIterationFiles):
             msg.fatal(" I can't figure out what iteration we're on based on the files present.  Have a look at all of the *_iteration_* files")
         if candIterationFiles != []:
             

@@ -4,7 +4,7 @@ from aBuild.utility import chdir, _get_reporoot
 
 class dataset:
 
-    def __init__(self,dset,systemSpecies,root=None,calculator = None,lFormat = 'mtpselect'):
+    def __init__(self,dset,systemSpecies,special_settings=None,root=None,calculator = None,lFormat = 'mtpselect'):
         from os import path,makedirs
         from aBuild.database.crystal import Crystal
         from aBuild.calculators.vasp import VASP
@@ -51,6 +51,9 @@ class dataset:
         print("Building database from enumerations")
         self.crystals = []
         #        configIndex = startPoint = self._starting_point
+#########################my changes#########################3
+        iterations = 0
+########################################################
         for eDict in enumdicts:
             enumController = Enumerate(eDict)
             if enumController.nEnumStructs == 0:
@@ -61,27 +64,34 @@ class dataset:
 
             # Loop to generate random structures for a given lattice type
 ######################################My changes ####################################################
-            i = 0
-            while i < eDict["nconfigs"]:
+            successes = 0
+            structures_tried = [] #don't want to check a structure more than once. Keep a list of structures tried here
+            while successes < eDict["nconfigs"]:
 #####################################################################################################
             #for i in range(eDict["nconfigs"]): #############I COMMENTED THIS OUT
                 rStruct = randrange(1,enumController.nEnumStructs)
 ##########################################my changes##################################################3
                 if self.special_settings["AFM"]: #if there's an AFM section in special settings, we don't want to add the
                 #crystal to the database if it can't be AFM. Check this case and only add if it works for AFM
-                    print('Checking if {} structure # {} can be AFM'.format(eDict["lattice"],rStruct) )
-                    enumController.generatePOSCAR(rStruct)
-                    poscarpath = path.join(enumController.root,"poscar.{}.{}".format(eDict["lattice"],rStruct))
-                    thisCrystal = Crystal(poscarpath, systemSpecies = systemSpecies)
-                    thisCrystal.get_spin( self.special_settings["AFM"]["plane"] , self.special_settings["AFM"]["spin_type"] )
-                    if len(thisCrystal.spins) != 0: #if some spins were found, it means it worked. add it to the database
-                        print('Success! Adding {} structure # {} to database'.format(eDict["lattice"],rStruct) )
-                        self.crystals.append(thisCrystal)
-                        with open('structNums','a+') as f:
-                            f.write(eDict["lattice"] + ' ' + str(rStruct) + '\n')
-                        i += 1
-                    else:
-                        print('Not adding {} structure # {} to database'.format(eDict["lattice"],rStruct) )
+                    if rStruct not in structures_tried: #if we haven't already checked this structure
+                        structures_tried.append(rStruct)
+                        print('Checking if {} structure # {} can be AFM'.format(eDict["lattice"],rStruct) )
+                        enumController.generatePOSCAR(rStruct)
+                        poscarpath = path.join(enumController.root,"poscar.{}.{}".format(eDict["lattice"],rStruct))
+                        thisCrystal = Crystal(poscarpath, systemSpecies = systemSpecies)
+                        thisCrystal.get_spin( self.special_settings["AFM"]["plane"] , self.special_settings["AFM"]["spin_type"] )
+                        if len(thisCrystal.spins) != 0: #if some spins were found, it means it worked. add it to the database
+                            print('Success! Adding {} structure # {} to database'.format(eDict["lattice"],rStruct) )
+                            self.crystals.append(thisCrystal)
+                            with open('structNums','a+') as f:
+                                f.write(eDict["lattice"] + ' ' + str(rStruct) + '\n')
+                            successes += 1 #add one to the amount of successes
+                        else: #no spin was found. Don't add the structure
+                            print('Not adding {} structure # {} to database'.format(eDict["lattice"],rStruct) )
+                        #now delete the original POSCAR 
+                        delpath = path.join(enumController.root,"poscar.{}.{}".format(eDict["lattice"],rStruct))
+                        remove(delpath)
+
                 else: #if it's not AFM, don't check anything, just add the random structure to the database
 ######################################################################################################
                     print('Adding {} structure # {} to database'.format(eDict["lattice"],rStruct) )
@@ -95,11 +105,14 @@ class dataset:
                     thisCrystal = Crystal(poscarpath, systemSpecies = systemSpecies) #title = ' '.join([self.enumDicts[index]["lattice"]," str #: {}"]).format(rStruct)
                     self.crystals.append(thisCrystal)
 ###########################################my changes###############################################
-                    i += 1
-                #whether the system is AFM or not, we need to delete the POSCAR if it's been looped over
+                    successes += 1
 #####################################################################################################
-                delpath = path.join(enumController.root,"poscar.{}.{}".format(eDict["lattice"],rStruct))
-                remove(delpath)
+                    delpath = path.join(enumController.root,"poscar.{}.{}".format(eDict["lattice"],rStruct))
+                    remove(delpath)
+######################################my changes#####################################################
+            iterations += len(structures_tried)
+        print(iterations,"structures tried")
+######################################################################################################
 
     # Sometimes an entire dataset is stored in one file.  I'd like to extract each crystal from the file to 
     # create a list of crystal objects
