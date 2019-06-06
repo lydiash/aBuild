@@ -9,31 +9,31 @@ class Lattice:
 
         # If the input is a dictionary, I'm probably passing all of the needed
         # information (lv, bv, etc) in explicitly
-        if isinstance(specs, dict): 
+        if isinstance(specs["lattice"], list):
             self._init_dict(specs)
         # If the input is a string, I'm just specifying a canonical lattice and I
         # expect the class to infer all the details
-        elif isinstance(specs, str):
-            self._init_string(specs)
+        elif isinstance(specs["lattice"], str):
+            self._init_string(specs["lattice"])
 
-        
 
-    def _init_dict(self,dict):
-
+            
+    def _init_dict(self,enumdict):
+        import numpy as np
         necessaryItems = ['lattice','basis','coordsys','name']
 
-        if not all([x in dict for x in necessaryItems]):
+        if not all([x in enumdict for x in necessaryItems]):
             msg.fatal('Missing information when initializing Lattice object')
 
-        if len(dict["lattice"]) == 3 and len(dict["lattice"][0]) == 3 and np.linalg.det(dict["lattice"]) != 0:
-            self.lattice = dict["lattice"]
-            self.lattice_name = "custom"
+        if len(enumdict["lattice"]) == 3 and len(enumdict["lattice"][0]) == 3 and np.linalg.det(enumdict["lattice"]) != 0:
+            self.lattice = enumdict["lattice"]
+            self.lattice_name = enumdict["name"]
         else:
             msg.fatal("The lattice vectors must be a 3x3 matrix with the vectors as rows "
                         "and the vectors must be linearly independent.")
-        self.basis = dict["basis"]
-        self.coordsys = dict["coordsys"]
-        self.lattice_name = dict["name"]
+        self.basis = enumdict["basis"]
+        self.coordsys = enumdict["coordsys"]
+        self.lattice_name = enumdict["name"]
         self.nBasis = len(self.basis)
         
     def _init_string(self,string):
@@ -62,22 +62,23 @@ class Lattice:
     @property
     def Bv_direct(self):
         from numpy import sum as nsum, array
+        from aBuild.utility import _chop_all
         if self.coordsys[0].upper() == 'D':
             return self.Bv
 
         from numpy.linalg import inv
         from numpy import transpose, array, equal
-        inv_lattice = inv(self.Lv.transpose())        
+        inv_lattice = inv(self.Lv.transpose()*self.latpar)        
         d_space_vector = [ list(dot(inv_lattice, array(b))) for b in self.Bv ]
-#############################################################################################################
-#        output = []
-#        for i in d_space_vector:
-#            if i not in output:
-#                output.append(_chop_all(epsilon, i)) #no idea where this _chop_all function is. can't use it
 
-#        return output
-        return d_space_vector #just return the d_space_vector instead
-#############################################################################################################  
+        output = []
+        for i in d_space_vector:
+            if i not in output:
+                output.append(_chop_all(epsilon, i)) 
+
+        return output
+
+
     
     def Lv_strings(self,nolatpar = False):
         if nolatpar:
@@ -100,10 +101,15 @@ class Crystal(object):
             print('initializing from a list')
             self._init_lines(crystalSpecs, lFormat)
         self.results = None
+        typesList = [[idx] * aCount for idx,aCount in enumerate(self.atom_counts)]
+        self.atom_types = []
+        for i in typesList:
+            self.atom_types += i
         self.nAtoms = sum(self.atom_counts)
         self.nTypes = len(self.atom_counts)
         
         if self.nAtoms != len(self.basis):
+            print("This is where we are.")
             msg.fatal("We have a problem")
 
             #        print("Before, the atom counts was {}.".format(self.atom_counts)) 
@@ -193,6 +199,11 @@ class Crystal(object):
         self.atom_counts = crystalDict["atom_counts"]
         self.coordsys = crystalDict["coordsys"]
         self.species = crystalDict["species"]
+        self.nTypes = crystalDict["nTypes"]
+#########################################################
+#        if not crystalDict["nAtoms"]:
+#            self.nAtoms = sum(self.atom_counts)
+#########################################################
         if sorted(self.species,reverse = True) != self.species:
             msg.fatal("The order of your atomic species is not in reverse alphabetical order... OK?")
         
@@ -245,9 +256,21 @@ class Crystal(object):
                 basis_inside.append(new_point)
             self.basis = basis_inside
             self.coordsys = 'D'
-            msg.info('Crystal is fixed')
-        else:
-            msg.info("Crystal didn't need fixing")
+            #msg.info('Crystal is fixed') ########I commented this out
+        #else: ########I commented this out
+            #msg.info("Crystal didn't need fixing") ########I commented this out
+            
+    @property
+    def orthogonality_defect(self):
+        from numpy.linalg import norm,det
+        from numpy import prod
+
+        return prod([norm(x) for x in self.lattice])/abs(det(self.lattice))
+    
+    @property
+    def cell_volume(self):
+        from numpy import dot,cross
+        return abs(dot(cross(self.lattice[0],self.lattice[1]),self.lattice[2]))
 
     # Calculates the distances between all of the atoms and finds
     # the minimum value from all of them.
@@ -303,6 +326,39 @@ class Crystal(object):
         crosses = [cross(v[0], v[1]) for v in groupings]
         dots = [dot(self.lattice[i], crosses[i]) for i in [0,1,2]]
         return [crosses[i]/dots[i] for i in [0,1,2]]
+
+    def getAFMPlanes(self,direction):
+        from numpy import sort,array,where,any
+        from numpy.linalg import norm
+
+        self.findNeighbors(0.75 * norm(self.latpar * self.lattice[0]+self.latpar * self.lattice[1]+self.latpar * self.lattice[2]) )
+        # Find all of the A atoms
+        aAtoms = where(array(self.atom_types) == 0)[0]
+        # Get position vectors for all of the A atoms, 
+        locationAatoms = array([self.neighbors[x][y] for x in aAtoms for y in range(len(self.neighbors[x])) ])
+        # Build a dictionary, one list for every plane of atoms
+        planesDict = {}
+        for idx,atom in enumerate(locationAatoms):
+            if atom[0][0] not in planesDict:
+                planesDict[atom[0][0]] = [atom]
+            else:
+                planesDict[atom[0][0]].append(atom)
+
+        # Check to see if every plane contains the same basis atom.
+        foundPlanes = True
+        for plane in list(planesDict.keys()):
+            if any(abs(array([x[2] for x in planesDict[plane]]) - planesDict[plane][0][2]) > 1e-3):
+                foundPlanes = False
+                
+        if foundPlanes:
+            print([planesDict[x][0][2] for x in list(planesDict.keys())])
+            return [planesDict[x][0][2] for x in list(planesDict.keys())]
+        else:
+            print("AFM doesn't work")
+            return []
+#        import sys
+#        sys.exit()
+
 ################################################################################
 ##############
  
@@ -331,6 +387,7 @@ class Crystal(object):
     #copied from the Lattice object
     @property
     def Bv_direct(self):
+        from aBuild.utility import _chop_all
         '''returns the basis in direct coordinates, whether it started as Direct or not'''
         from numpy import sum as nsum, array, dot
         if self.coordsys[0].upper() == 'D':
@@ -338,16 +395,16 @@ class Crystal(object):
 
         from numpy.linalg import inv
         from numpy import transpose, array, equal
-        inv_lattice = inv(self.lattice.transpose())        
+        inv_lattice = inv(self.lattice.transpose()*self.latpar)        
         d_space_vector = [ list(dot(inv_lattice, array(b))) for b in self.basis ]
 
-#        output = []
-#        for i in d_space_vector:
-#            if i not in output:
-#                output.append(_chop_all(epsilon, i))
+        output = []
+        for i in d_space_vector:
+            if i not in output:
+                output.append(_chop_all(epsilon, i))
 
-#        return output
-        return d_space_vector
+        return output
+
 #################################################################################################
 
     @property
@@ -369,7 +426,7 @@ class Crystal(object):
             return self.basis
 
 
-    def findNeighbors(self):
+    def findNeighbors(self,rcut):
         from numpy import array,dot,min,einsum,add,roll,column_stack,append,where,extract,argwhere,set_printoptions
         from numpy.linalg import norm
         from itertools import product
@@ -384,23 +441,24 @@ class Crystal(object):
         neighborsCartesian = einsum('abc,cd',neighborsDirect,self.latpar * self.lattice)
         diffs = array([x  - neighborsCartesian for x in self.Bv_cartesian])
         distances = norm(diffs, axis = 3)
-        keepIndices = argwhere(distances < self.rcut)
+        keepIndices = argwhere(distances < rcut)
 
         self.neighbors = [[] for x in self.atom_types]
         for [centerAtom,neighborAtom,shift] in keepIndices:
-            self.neighbors[centerAtom].append([neighborsCartesian[neighborAtom,shift], self.atom_types[neighborAtom] ])
-        print(array(self.neighbors))
+            self.neighbors[centerAtom].append([neighborsCartesian[neighborAtom,shift], self.atom_types[neighborAtom] ]) 
+#        print(array(self.neighbors))
 
 
     @property
     def Bv_direct(self):
-        from numpy import sum as nsum, array
+        from numpy import sum as nsum, array, dot
+        from aBuild.utility import _chop_all
         if self.coordsys[0].upper() == 'D':
             return self.basis
         print('getting direct vectors')
         from numpy.linalg import inv
         from numpy import transpose, array, equal
-        inv_lattice = inv(self.lattice.transpose())        
+        inv_lattice = inv(self.lattice.transpose()*self.latpar)        
         d_space_vector = [ list(dot(inv_lattice, array(b))) for b in self.basis ]
 
         output = []
@@ -576,6 +634,7 @@ class Crystal(object):
     def write(self, filename, fileformat = 'vasp'):
         """Writes the contents of this POSCAR to the specified file."""
         #fullpath = os.path.abspath(filepath)
+        #print("lines",self.lines(fileformat))
         with open(filename, 'w') as f:
             f.write('\n'.join(self.lines(fileformat)))
 
@@ -759,7 +818,7 @@ class Crystal(object):
         #    lines = POSCAR(self)
         #lines.write(filepath,vasp=True)
 
-#################################################################
+#################################my changes#################################################3
     #generate a cif file from a POSCAR
     def generate_cif(self):
         import shutil
@@ -792,90 +851,120 @@ class Crystal(object):
             
     #If I want to make a crystal AFM, I need to assign spin to the specified atoms so they
     #line up in a specified plane
-    def get_spin(self,plane,spinType):
-        from numpy import dot, zeros, array
-        
-        #find the layers of the magnetic substance
-        layer_values = self.AFM_layers( plane , spinType )
-        #find the indices that correspond to atoms with spin
-        indices = self.which_atoms_spin(spinType)
+    def get_spin(self,plane,spinType,eps=1e-3):
+        from numpy import dot, zeros, zeros_like, array
+        from numpy.linalg import norm
+        from aBuild.utility import _chop_all
 
-        #if it's an even number of layers, great, it preserved the periodicity of the crystal
-        #if not, return an empty list of spins
-        if layer_values == 0:
-            spins = [] #the lattice vectors didn't work for AFM. return an empty list of spins
-        elif len(layer_values) % 2 == 1:
-            print("Not an even number of planes in the {} direction.".format(plane) )
-            spins = [] #return an empty list of spins. This means we can't use this as an AFM structure
-        else:           
-            #convert to cartesian
-            bases = self.Bv_cartesian
-            #keep track of the spins. 0 if it's not the species specified
-            spins = zeros(self.nAtoms)
-            #for each layer value, assign appropriate spin
-            for i in range(len(layer_values)):
-                #loop over the bases with spin
-                for j in range(indices[0],indices[1]):
-                    basis = bases[j]
-                    this_value = dot(basis,plane)
-                    #if the atom is in the layer we are investigating
-                    diff = abs(this_value - layer_values[i])
-                    if diff < 1e-3:
-                        #give it some spin
-                        if i % 2 == 0:
-                            spins[j] = 2.0
-                        else:
-                            spins[j] = -2.0
-        self.spins = spins
-
-        
-    # cartesian values of the layers for AFM
-    def AFM_layers(self,direction,spinType):
-        from numpy import dot
-
-        #first we want to check if the lattice vectors are friendly to AFM structures.
-        test = [ dot(self.lattice[i],direction) for i in [0,1,2] ]
-        tally = 0
-        for i in range( len(test) ):
-            #if the lattice points in the direction we are searching, add one to the tally
-            if abs(test[i]) > 1e-3:
-                tally += 1
-        #if more than one lattice vector points in the direction we're searching, it won't work for AFM
-        if tally != 1:
-            print("These lattice vectors aren't nice for AFM.")
-            return 0 #return 0. Must check for this case
-
-        #if the lattice vectors are friendly, now calculate the layers
-        #convert to cartesian
         bases = self.Bv_cartesian
-        layer_values = []
-
         indices = self.which_atoms_spin(spinType)
-        
-        #loop over all the bases (of the atom type you want)
-        for i in range(indices[0],indices[1]):
-            basis = bases[i]
-            this_value = dot(basis,direction) #the value of the basis in the direction we are investigating
-            #add this_value to the list of layers if it's not already in the list
-            if this_value not in layer_values:
-                layer_values.append(this_value)
+        LVs = [ dot(self.lattice[i]*self.latpar,plane) for i in [0,1,2] ] #value of LVs in direction of planes
+        maxLV = max( LVs )
+        minLV = min( LVs )
+        if maxLV < 0 and minLV < 0:
+            maxLV = 0
+        if maxLV > 0 and minLV > 0:
+            minLV = 0
 
+        layers = [ dot( bases[i],plane ) for i in range( indices[0],indices[1] ) ]
+        self.findNeighbors(0.75 * norm(self.latpar * self.lattice[0]+self.latpar * self.lattice[1]+self.latpar * self.lattice[2]) ) #neighbor[i][j] holds the following info: [<cartesian vector>, <atom_type>]
+        for i in range(indices[0],indices[1]): #loop over all the neighbors for the atom type we care about
+            layers += [ dot(neighbor[0], plane) for neighbor in self.neighbors[i] ]
+
+        
         #if there's values that are (very close to) the same
-        for value in layer_values:
-            for i in range(len(layer_values)):
-                if abs(value - layer_values[i]) < 1e-3:
-                    layer_values[i] = float(value) #make them equal eachother
+        new_layers = _chop_all(eps,layers)
+#        for i in range( len(layers) ):
+#            for value2 in layers:
+#                diff = abs(layers[i] - value2)
+#                if diff < eps: #if they're within some epsilon of eachother
+#                    layers[i] = float(value2) 
 
         #now get rid of duplicates
         new_layer_values = []
-        for value in layer_values:
+#        new_layer_values = set(new_layers)
+#        new_layer_values = [value for value in layers_inside if value not in new_layer_values]
+        for value in new_layers:
             if value not in new_layer_values:
-                new_layer_values.append(value)
+                new_layer_values.append(value)        
+#        for value in layers:
+#            if value not in new_layer_values:
+#                new_layer_values.append(value)
 
-        #sort the layer_values in ascending order
         new_layer_values.sort()
+        
+        layers_inside = [ x for x in new_layer_values if x >= minLV and x <= maxLV ] #layers "inside" the unit cell
+        if len(layers_inside) % 2 == 1: 
+            print( "There's an odd number of layers in the {} direction.".format(plane) )
+            spin = []
+        else: #Cool, there's an even number of layers. Now check other conditions
+            new_layer_values.sort() #paranoia check
+            layers_inside.sort() #just to make sure...
 
-        return new_layer_values
+            #check if lattice vectors keep periodicity
+            tally = 0
+            for LV in LVs:
+                for i in range( len(layers_inside) ):
+                    diff = abs(LV - layers_inside[i])
+                    if diff < eps and i % 2 == 0: 
+                        tally += 1 #if the LV fits in one of the even layers, it's good.
+                        break  #Stop checking this LV
+            if tally < 3: #not all three LVs worked
+                print( "This lattice doesn't keep the periodicity for AFM." )
+                spin = []
+
+            elif tally == 3: #Cool, the lattices work. Now check the bases.. If an atom is spin up in the unit cell,
+                             #it has to be spin up in all the neighboring cells.
+                #assign spin to all the atoms in the unit cell
+                unit_cell_spin = zeros(self.nAtoms)
+                for i in range(indices[0],indices[1]):
+                    for j in range( len(new_layer_values) ):
+                        basis = bases[i]
+                        this_value = dot(basis,plane)
+                        diff = abs(this_value - new_layer_values[j])
+                        if diff < eps: #if the atom is in the layer we are investigating
+                            if j % 2 == 0: #if it's in an even layer, give it up spin
+                                unit_cell_spin[i] = 2.0
+                            else: #if it's in an odd layer, give it down spin
+                                unit_cell_spin[i] = -2.0
+                #assign spin to all the neighboring atoms
+                neighbor_spin = [ zeros(len(self.neighbors[x])) for x in range( indices[0],indices[1] ) ] #list of lists
+                for i in range(indices[0],indices[1]):
+                    for j in range( len(self.neighbors[i]) ):
+                        for k in range( len(new_layer_values) ):
+                            basis = bases[i]
+                            this_value = dot(basis, plane)
+                            diff = abs(this_value - new_layer_values[k])
+                            if diff < eps:
+                                if k % 2 == 0:
+                                    neighbor_spin[i][j] = 2.0
+                                else:
+                                    neighbor_spin[i][j] = -2.0
+                #now check that for each atom, the same atom in the neighboring cell has the same spin
+                success = True
+                for i in range(indices[0],indices[1]):
+                    this_success = True
+                    for j in range( len(self.neighbors[i]) ):
+                        if unit_cell_spin[i] != neighbor_spin[i][j]: #if even one neighbor fails this test
+                            this_success = False #the whole structure fails
+                    if not this_success: #if even one basis fails, the whole structure fails
+                        success = False
+                if not success:
+                    print( "This basis set doesn't keep the periodicity for AFM." )
+                    spin = []
+                else:
+                    print( "Success! Assigning spin..." )
+                    spin = unit_cell_spin
+        self.spins = spin
+       
+    #checks if a structure can be AFM
+    def checkAFM(self,direction,spinType,eps=1e-3):
+        from numpy import array
+        self.get_spin(direction,spinType,eps)
+        if self.spins != []:
+            return True
+        else:
+            return False
 
     def which_atoms_spin(self,spinType):
         from numpy import array
@@ -891,9 +980,117 @@ class Crystal(object):
             basisNumEnd = basisNumStart + self.atom_counts[2]
         return array( [basisNumStart,basisNumEnd] )
     
-################################################################# 
+################################################################################################# 
+    def superPeriodics(self,size,special_settings=None): ############Added special_settings
+        from numpy import dot,array,prod,einsum,any,all,copy
+        from numpy.linalg import inv,det,norm
+        from numpy import sum as nsum,transpose,matmul,cross
+        from itertools import product,combinations
+        from aBuild.utility import _chop_all,map_into_cell, convert_direct,vec_in_list
+        crystals = []
 
-        
-        
+        # Generate all super-periodic lattice vectors
+        dimension = len(self.lattice)
+        multiplesOf = array([x for x in combinations([x for x in product(range(-1,2),repeat = dimension) if sum(abs(array(x))) !=0],dimension) ]) 
 
+        lattices = einsum('abc,dc->abd',multiplesOf,transpose(self.lattice))
+        keeps = [x  for x in lattices if abs(det(transpose(x))) > 1e-3 and abs(det(transpose(x)))/abs(det(transpose(self.lattice))) <= size]
+        # Done getting super-periodic lattice vectors.
+        
+        # Get all atoms by adding multiples of the parent lattice vectors
+        combs =  [x for x in product(range(-2,2),repeat = 3)]
+        latticeVecCombinations = einsum('ab,bd->ad', combs,self.lattice*self.latpar)
+        basisAtoms = [x + latticeVecCombinations for x in self.Bv_cartesian]
+        for lattice in keeps:
+            basDirect = [_chop_all(1e-4,convert_direct(lattice*self.latpar, x)) for x in self.Bv_cartesian]
+            crystalDict = {"lattice":lattice, "basis":basDirect, "coordsys":'D', "atom_counts":[x for x in self.atom_counts],"species":self.species,"latpar":self.latpar,"nTypes":self.nTypes}
+            crystalDict["title"] = self.title + ' super'
+#            print("initializing crystal")
+#            print(self.atom_counts,' atom counts')
+#            print(self.lattice, 'orig lattice')
+#            print(crystalDict, 'dict')
+            newCrystal = Crystal(crystalDict,self.species)
+            if newCrystal.orthogonality_defect/self.orthogonality_defect > 2:
+                print('Cell is too skew, not considering it')
+                continue
+#            print("intialized")
+            newCrystal.validateCrystal() #Maps all the atoms into the first unit cell
+            sizeIncrease = round(newCrystal.cell_volume/self.cell_volume)
+#            print(sizeIncrease, "size Inc")
+            if newCrystal.cell_volume < 1e-3:
+                print("Found a zero volume cell!! Continuing without considering it")
+                continue
+            if abs(int(sizeIncrease) - sizeIncrease) > 1e-3:
+                print(sizeIncrease,int(sizeIncrease), "Cell volume increase doesn't appear to be an integer multiple of the parent volume")
+                import sys
+                sys.exit()
+
+            # We don't need to populate the cell if it's size 1 because we know there
+            # are the same number of basis atoms as the original
+#            if sizeIncrease == 1:
+#                continue
+            # Now populate the cell with all of the basis atoms.
+            for idx, origbasis in enumerate(basisAtoms):
+                track = 1
+                for equiv in origbasis:
+                    # First check to see if we have enough atoms of this type already.
+                    if track == sizeIncrease:
+                        break
+                    candidate = _chop_all(1e-4,map_into_cell(_chop_all(1e-4,convert_direct(newCrystal.lattice*newCrystal.latpar,equiv))))
+                    if not vec_in_list(candidate,newCrystal.basis) and (not any(candidate >= 1) and not any(candidate < 0) ) :
+                        newCrystal.basis.append(candidate)
+                        atomType = self.atom_types[idx]
+                        newCrystal.atom_types.append(atomType)
+                        newCrystal.atom_counts[atomType] += 1
+                        newCrystal.nAtoms += 1
+                        track += 1
+                        
+            if abs(newCrystal.nAtoms - sizeIncrease * self.nAtoms) > 1e-5:
+                print("You don't have enough atoms")
+                print(self.nAtoms, 'n primitive atoms')
+                print(newCrystal.nAtoms, 'n current atoms')
+                print(newCrystal.lattice, 'new lattice')
+                print(self.cell_volume, 'size primitive')
+                print(newCrystal.cell_volume, 'size current')
+                print(det(transpose(lattice)), 'det')
+                print(sizeIncrease, 'size increase')
+                print(array(newCrystal.basis), 'new basis')
+                print(newCrystal.atom_counts,'atom counts')
+                print(newCrystal.atom_types,'atom types')
+                print(len(crystals))
+                import sys
+                sys.exit()
+            sortKey = sorted(range(newCrystal.nAtoms), key = lambda x: newCrystal.atom_types[x])
+            newCrystal.basis = [newCrystal.basis[x] for x in sortKey]
+            newCrystal.atom_types = sorted(newCrystal.atom_types)
+#            with open('supers.out','a+') as f:
+#                f.writelines("Title\n")
+#                f.writelines(newCrystal.lattice_lines)
+#                f.writelines("\n{} {}\n".format(newCrystal.atom_counts[0],newCrystal.atom_counts[1]))
+#                f.writelines(newCrystal.basis_lines)
+#                f.writelines('\n\n\n')
+#            print('adding new crystal')
+#            if newCrystal.getAFMPlanes([1,0,0]) != []:
+#                print('Found one')
+#                return newCrystal ##############I added this
+#                print(newCrystal.lattice, 'lattice')
+#                print(newCrystal.basis,'basis')
+#                print(sizeIncrease, 'size increase')
+#                import sys
+#                sys.exit()
+#            crystals.append( newCrystal )
+#        print("Found all super-periodics")
+#        print(len(crystals))
+#        import sys
+#        sys.exit()
+#        return crystals
+#####################my changes#############################################
+            AFM = newCrystal.checkAFM( special_settings["AFM"]["plane"] , special_settings["AFM"]["spin_type"] , special_settings["eps"] )
+            if AFM:
+                print("Found a superperiodic crystal that works for AFM")
+                return newCrystal
+        print("Did not find any superperiodic crystals that can be AFM.")
+        return None
+##############################################################################I commented the following out  
        
+

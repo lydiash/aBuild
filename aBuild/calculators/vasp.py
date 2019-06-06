@@ -10,6 +10,9 @@ config = sys.modules["config"]
 class VASP:
     """Class to handle all of the VASP input and output files.
     Args:
+        specs (dict or str):  Either a dictionary containing all of the 
+                              necessary settings or a path to a folder that
+                              contains all of the files needed.
         root (str): Path to the calculation folder
         incar (dict): Dictionary containing the INCAR tags to be used
         potcars (dict): Dictionary containing the necessary settings to 
@@ -21,26 +24,33 @@ class VASP:
     """
 
 
-    def __init__(self, specs,systemSpecies,directory = None):
+    def __init__(self, specs,systemSpecies = None, directory = None):
 
         from aBuild.database.crystal import Crystal
-        
+
+        #Initialize from a dictionary
         if isinstance(specs,dict):
-            self.INCAR = INCAR(specs["incar"])
-            self.POTCAR = POTCAR(specs["potcar"])
-            self.KPOINTS = KPOINTS(specs["kpoints"])
-            if isinstance(specs["crystal"],Crystal):
-                self.crystal = specs["crystal"]
+            
+            if self._all_present(specs):
+                self.POTCAR = POTCAR(specs["potcars"])
+                self.KPOINTS = KPOINTS(specs["kpoints"])
+                if isinstance(specs["crystal"],Crystal):
+                    self.crystal = specs["crystal"]
+                else:
+                    self.crystal = Crystal(specs["crystal"],specs["species"])
+                self.handleSpecialTags(specs)
+                self.INCAR = INCAR(specs["incar"])
+            
+###############################################################################
+                if len(self.crystal.spins) != 0: #if there's spins on the crystal object, this means it's got some sort of magnetic moments. Make INCAR tags for this
+                    spin_line = ''
+                    for i,val in enumerate(self.crystal.spins):
+                        spin_line += str(val) + ' '
+                    self.INCAR.add_tag("MAGMOM",spin_line)
+###############################################################################
             else:
-                self.crystal = Crystal(specs["crystal"],systemSpecies)
-###############################################################################
-            if len(self.crystal.spins) != 0: #if there's spins on the crystal object, this means it's got some sort of magnetic moments. Make INCAR tags for this
-                spin_line = ''
-                for i,val in enumerate(self.crystal.spins):
-                    spin_line += str(val) + ' '
-                self.INCAR.add_tag("ISPIN",str(2) )
-                self.INCAR.add_tag("MAGMOM",spin_line)
-###############################################################################
+                msg.fatal("I don't have all the necessary information to initialize: {}".format(specs.keys()))
+        #Initialize from a path
         elif isinstance(specs, str):
             self.POTCAR = POTCAR(path.join(specs,'POTCAR'))
             self.KPOINTS = KPOINTS(path.join(specs,'KPOINTS'))
@@ -51,13 +61,28 @@ class VASP:
         if directory is not None:
             self.directory = directory
 
+    def _all_present(self,specs):
+        required = ["incar","potcars","kpoints","crystal","species"]
+        for tag in required:
+            if tag not in specs.keys():
+                return False
+        return True
 
+    def handleSpecialTags(self,specs):
+        special = ["AFM","FM"]
+        if "FM" in specs.keys():
+            specs["incar"]["ispin"] = 2
+            specs["incar"]["magmom"] = ''
+
+            for idx,species in enumerate(sorted(specs["FM"],reverse = True)):
+                specs["incar"]["magmom"] +=  ' '.join(map(str, [ specs["FM"][species] ] * self.crystal.atom_counts[idx]))
+                specs["incar"]["magmom"] += ' '
 
         
     def check_atom_counts_zero(self):
         from numpy import array
-
-        if any(self.crystal.atom_counts == 0):
+        
+        if any([True if i == 0 else False for i in self.crystal.atom_counts] ): ###I changed this
             from numpy import  where
             idxKeep = list(where( self.crystal.atom_counts > 0)[0])
             self.POTCAR.species = list(array(self.POTCAR.species)[idxKeep])
@@ -97,6 +122,7 @@ class VASP:
             potcar = self._check_file_exists('POTCAR')
             poscar = self._check_file_exists('POSCAR')
             output = self._check_file_exists('output')
+            oszicar = self._check_file_exists('OSZICAR')
 
 
             inputs = incar and kpoints and potcar and poscar
@@ -304,7 +330,7 @@ class VASP:
         pures = []
         for i in range(self.crystal.nTypes):
             pureDir = path.join(path.split(self.directory)[0], 'pure' + self.crystal.species[i])
-            pureVASP = VASP(pureDir,self.crystal.species)
+            pureVASP = VASP(pureDir,systemSpecies = self.crystal.species)
             pureVASP.read_results()
             pures.append(pureVASP)
 

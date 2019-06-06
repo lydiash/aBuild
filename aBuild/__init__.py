@@ -31,7 +31,7 @@ class Controller(object):
 #####################################################################################
         self.special_settings = {}
         if self.specs["calculator"]["vasp"]["AFM"]: #if there's an AFM section in the YAML
-            self.special_settings["AFM"] = self.specs["calculator"]["vasp"]["AFM"] #save the AFM settings to special_settings
+            self.special_settings["AFM"] = self.specs["calculator"]["vasp"]["AFM"] #save the AFM settings
 #####################################################################################
 
         if "directory" not in self.specs["calculator"]["vasp"]["potcars"] or self.specs["calculator"]["vasp"]["potcars"]["directory"] is None:
@@ -109,6 +109,24 @@ class Controller(object):
             import sys
             sys.exit()
 
+    @property
+    def name(self):
+        if "name" in self.specs[self.dataset]:
+            savedNames = self.specs[self.dataset]["name"]
+            for idx,name in enumerate(savedNames):
+                if name is None:
+                    savedNames[idx] = self.specs[self.database]["lattice"][idx]
+            return savedNames#self.specs[self.dataset]["name"]
+        else:
+            return [None for k in range(self.nEnums)]
+
+    @property
+    def coordsys(self):
+        if "coordsys" in self.specs[self.dataset]:
+            return self.specs[self.dataset]["coordsys"]
+        else:
+            return [None for k in range(self.nEnums)]
+
     
     @property
     def siteRestrictions(self):
@@ -131,6 +149,8 @@ class Controller(object):
             edict["concs"] = self.concRestrictions[i]
             edict["root"] = self.root
             edict["eps"] = 1e-3
+            edict["coordsys"] = self.coordsys[i]
+            edict["name"] = self.name[i]
             edicts.append(edict)
         
         return edicts
@@ -153,6 +173,9 @@ class Controller(object):
 
         self.dataset = "trainingset"
         trainingRoot = path.join(self.root,'training_set')
+############################################################################3
+        self.special_settings["eps"] = 1e-3 #epsilon for checking if atoms are in same layer
+############################################################################
         trainingSet = dataset(self.enumDicts,self.species,special_settings = self.special_settings)######### ADDED SPECIAL_SETTINGS
         trainingSet.buildFolders(trainingRoot,self.calculator,runGetKpoints = runGetKpoints)
         
@@ -180,7 +203,10 @@ class Controller(object):
 
         newTraining = path.join(self.root,'fitting','mtp','new_training.cfg')
         trainingRoot = path.join(self.root,'training_set')
-        dSet = dataset(newTraining,self.species,lFormat = 'mlpselect')
+############################################################################3
+        self.special_settings["eps"] = 5e-2 #epsilon for checking if atoms are in same layer
+############################################################################
+        dSet = dataset(newTraining,self.species,special_settings = self.special_settings,lFormat = 'mlpselect')######### ADDED SPECIAL_SETTINGS
         dSet.buildFolders(trainingRoot,self.calculator,foldername = 'A')
         
     def statusReport(self):
@@ -195,7 +221,7 @@ class Controller(object):
         dirs = [path.join(trainingRoot,x) for x in enumdirs + activedirs]
         stat = {'done':[],'running':[], 'not started': [], 'too long':[], 'not setup':[],'warning':[],'idk':[]}
         for dir in dirs:
-            thisVASP = VASP(dir,self.species)
+            thisVASP = VASP(dir,systemSpecies = self.species)
             stat[thisVASP.status()].append(dir.split('/')[-1])
             #            msg.info("Status of directory {} is {} ".format(dir,thisVASP.status()))
         msg.info('Done (' + str(len(stat['done'])) + ')')

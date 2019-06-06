@@ -83,10 +83,26 @@ trainingset: #used to be database
     - "fcc"
     - "hcp"
     - "bcc"
+    - [[0.5,0.5,0],[0.5,0,0.5],[0,0.5,0.5]]
+  basis:
+    - None
+    - None
+    - None
+    - [[0,0,0],[0.25,0.25,0.25],[0.75,0.75,0.75]]
+  coordsys:
+    - "D"
+    - "D"
+    - "D"
+    - "D"
+  name:
+    - None
+    - None
+    - None
+    - "fluorite"
 #  concs: [ [], [[0,1,2] , [0,1,4]] ]
-  nconfigs: [2,2,2]  # One number per lattice defined in the lattice variable
+  nconfigs: [2,2,2,2]  # One number per lattice defined in the lattice variable
 #  siteRestrictions: [['0/1'],['0/1','0/1']]
-  sizes: [[1,12],[1,6],[1,12]]
+  sizes: [[1,12],[1,6],[1,12],[1,8]]
 #        ran_seed: 10
 gss: # Structures to put in the mtp relax set
   name: 'gss'
@@ -95,10 +111,29 @@ gss: # Structures to put in the mtp relax set
     - "bcc"
     - "hcp"
     - "protos"
+    - [[0.5,0.5,0],[0.5,0,0.5],[0,0.5,0.5]]
+  basis:
+    - None
+    - None
+    - None
+    - None
+    - [[0,0,0],[0.25,0.25,0.25],[0.75,0.75,0.75]]
+  coordsys:
+    - "D"
+    - "D"
+    - "D"
+    - "C"
+    - "D"
+  name:
+    - None
+    - None
+    - None
+    - None
+    - "fluorite"
 #  concs: [ [], [[0,1,2] , [0,1,4]] ]
 #  siteRestrictions: [['0/1'],['0/1','0/1']]
   sizes: [[1,12],[1,6],[1,12],[1,10],all]
-  nconfigs: [6,6,6,all]
+  nconfigs: [6,6,6,all,6]
 holdout:
   name: 'holdout'
   lattice:
