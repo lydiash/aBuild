@@ -1085,7 +1085,7 @@ class Crystal(object):
 #        sys.exit()
 #        return crystals
 #####################my changes#############################################
-            AFM = newCrystal.checkAFM( special_settings["AFM"]["plane"] , special_settings["AFM"]["spin_type"] , special_settings["eps"] )
+            AFM = newCrystal.checkAFM( special_settings["AFM"]["plane"] , special_settings["AFM"]["spin_type"])# , special_settings["eps"] )
             if AFM:
                 print("Found a superperiodic crystal that works for AFM")
                 return newCrystal

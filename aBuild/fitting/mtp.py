@@ -352,7 +352,7 @@ class MTP(object):
 #                        thisCrystal.validateCrystal()
                         if self.special_settings["AFM"]: #if there's a AFM dictionary passed in with special_settings
                             print("Checking if this structure can be AFM")
-                            AFMsuccess = thisCrystal.checkAFM(self.special_settings["AFM"]["plane"],self.special_settings["AFM"]["spin_type"],self.special_settings["eps"] )
+                            AFMsuccess = thisCrystal.checkAFM(self.special_settings["AFM"]["plane"],self.special_settings["AFM"]["spin_type"])#,self.special_settings["eps"] )
                             if not AFMsuccess:
                                 print("Checking super periodics for this structure")
                                 thisSuper = thisCrystal.superPeriodics(size=2,special_settings=self.special_settings)
@@ -389,7 +389,7 @@ class MTP(object):
                     if self.special_settings["AFM"]: #if there's a AFM dictionary passed in with special_settings
                         #check if this crystal can be AFM
                         print("Checking if {} structure {} can be AFM".format(lat,struct))
-                        AFMsuccess = thisCrystal.checkAFM(self.special_settings["AFM"]["plane"],self.special_settings["AFM"]["spin_type"],self.special_settings["eps"] )
+                        AFMsuccess = thisCrystal.checkAFM(self.special_settings["AFM"]["plane"],self.special_settings["AFM"]["spin_type"])#,self.special_settings["eps"] )
                         if not AFMsuccess:
                             print("Checking super periodics for this structure")
                             thisSuper = thisCrystal.superPeriodics(size=2,special_settings=self.special_settings)
