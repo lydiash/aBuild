@@ -181,7 +181,7 @@ class Controller(object):
         
         
 
-    def setupHandler(self,model,tag):
+    def setupHandler(self,model,tag,start = 1):
         from aBuild.fitting.mtp import MTP
         from os import path
         
@@ -192,7 +192,7 @@ class Controller(object):
         
         thisMTP = MTP(fittingRoot,settings=self.fitting,special_settings=self.special_settings)######ADDED SPECIAL_SETTINGS
         handler = {'setup_train':lambda: thisMTP.setup_train(trainingRoot,self.species),
-                   'setup_relax':lambda:thisMTP.setup_relax(self.enumDicts,self.species),
+                   'setup_relax':lambda:thisMTP.setup_relax(self.enumDicts,self.species,start = start),
                     'setup_select_add':lambda :thisMTP.setup_select()}
         handler[tag]()
 
@@ -219,7 +219,7 @@ class Controller(object):
             activedirs = glob("A.*")
 
         dirs = [path.join(trainingRoot,x) for x in enumdirs + activedirs]
-        stat = {'done':[],'running':[], 'not started': [], 'too long':[], 'not setup':[],'warning':[],'idk':[]}
+        stat = {'done':[],'running':[], 'not started': [], 'too long':[], 'not setup':[],'warning':[],'idk':[],'unconverged':[]}
         for dir in dirs:
             thisVASP = VASP(dir,systemSpecies = self.species)
             stat[thisVASP.status()].append(dir.split('/')[-1])
@@ -238,6 +238,8 @@ class Controller(object):
         msg.info(' '.join(stat['warning']))
         msg.info('Not sure (' + str(len(stat['idk'])) + ')')
         msg.info(' '.join(stat['idk']))
+        msg.info('Unconverged (' + str(len(stat['unconverged'])) + ')')
+        msg.info(' '.join(stat['unconverged']))
 
     def gatherResults(self):
         from os import path

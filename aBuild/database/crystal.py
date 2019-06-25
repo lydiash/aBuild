@@ -91,6 +91,7 @@ class Lattice:
 class Crystal(object):
 
     def __init__(self,crystalSpecs, systemSpecies,crystalSpecies = None,lFormat = 'mtpselect'):
+        from numpy import array
         self.species = systemSpecies
         if isinstance(crystalSpecs,dict):  # When the crystal info is given in a dictionary
             self._init_dict(crystalSpecs)
@@ -107,7 +108,9 @@ class Crystal(object):
             self.atom_types += i
         self.nAtoms = sum(self.atom_counts)
         self.nTypes = len(self.atom_counts)
-        
+        self.basis += array([0,0,0])
+        print(self.basis)
+        print(self.nAtoms, "nAtoms", len(self.basis), "len of basis")
         if self.nAtoms != len(self.basis):
             print("This is where we are.")
             msg.fatal("We have a problem")
@@ -239,7 +242,7 @@ class Crystal(object):
     # are outside of the first unit cell.  If they are, we
     # map them back inside the first cell.
     def validateCrystal(self):
-        from numpy import array,any
+        from numpy import array,any,cross,dot,copy
         from math import floor
        # print(self.Bv_direct, 'D')
         if any(array(self.Bv_direct) > 1) or any(array(self.Bv_direct) < 0):
@@ -256,6 +259,14 @@ class Crystal(object):
                 basis_inside.append(new_point)
             self.basis = basis_inside
             self.coordsys = 'D'
+####################################my changes################################
+        if dot(cross(self.lattice[0],self.lattice[1]), self.lattice[2]) < 0:
+            self.basis = self.Bv_cartesian
+            self.coordsys = 'C'
+            temp = copy(self.lattice[0])
+            self.lattice[0] = copy(self.lattice[1])
+            self.lattice[1] = temp
+##############################################################################
             #msg.info('Crystal is fixed') ########I commented this out
         #else: ########I commented this out
             #msg.info("Crystal didn't need fixing") ########I commented this out
@@ -433,7 +444,7 @@ class Crystal(object):
 
         # Get all of the offsets to translate the basis vectors to equivalent
         # positions
-        offsets = array([x for x in product(range(-4,4),repeat = 3)])
+        offsets = array([x for x in product(range(-1,2),repeat = 3)])
 
         # Translate them (in direct coordinates)  Shape: nBasis x nOffset x nCoord (3)
         neighborsDirect  = array([x + offsets for x in self.Bv_direct])
@@ -692,6 +703,7 @@ class Crystal(object):
           already include the strN, it will be added to the title.
         """
         from aBuild.calculators.vasp import POSCAR
+        print("filepath is ", filepath)
         lines = POSCAR(filepath)
         from numpy import array
         #First get hold of the compulsory lattice information for the class
@@ -858,103 +870,109 @@ class Crystal(object):
 
         bases = self.Bv_cartesian
         indices = self.which_atoms_spin(spinType)
-        LVs = [ dot(self.lattice[i]*self.latpar,plane) for i in [0,1,2] ] #value of LVs in direction of planes
-        maxLV = max( LVs )
-        minLV = min( LVs )
-        if maxLV < 0 and minLV < 0:
-            maxLV = 0
-        if maxLV > 0 and minLV > 0:
-            minLV = 0
+        
+        if self.atom_counts[spinType] <= 1:
+            print("One or less atom with spin in the unit cell.")
+            spin = []
+        else: #if there's more than one, find layers...
+            LVs = [ dot(self.lattice[i]*self.latpar,plane) for i in [0,1,2] ] #value of LVs in direction of planes
+            maxLV = max( LVs )
+            minLV = min( LVs )
+            if maxLV < 0 and minLV < 0:
+                maxLV = 0
+            if maxLV > 0 and minLV > 0:
+                minLV = 0
 
-        layers = [ dot( bases[i],plane ) for i in range( indices[0],indices[1] ) ]
-        self.findNeighbors(0.75 * norm(self.latpar * self.lattice[0]+self.latpar * self.lattice[1]+self.latpar * self.lattice[2]) ) #neighbor[i][j] holds the following info: [<cartesian vector>, <atom_type>]
-        for i in range(indices[0],indices[1]): #loop over all the neighbors for the atom type we care about
-            layers += [ dot(neighbor[0], plane) for neighbor in self.neighbors[i] ]
+            layers = [ dot( bases[i],plane ) for i in range( indices[0],indices[1] ) ]
+            self.findNeighbors(0.75 * norm(self.latpar * self.lattice[0]+self.latpar * self.lattice[1]+self.latpar * self.lattice[2]) ) #neighbor[i][j] holds the following info: [<cartesian vector>, <atom_type>]
+            for i in range(indices[0],indices[1]): #loop over all the neighbors for the atom type we care about
+                layers += [ dot(neighbor[0], plane) for neighbor in self.neighbors[i] ]
 
         
-        #if there's values that are (very close to) the same
-        new_layers = _chop_all(eps,layers)
+            #if there's values that are (very close to) the same
+            new_layers = _chop_all(eps,layers)
 #        for i in range( len(layers) ):
 #            for value2 in layers:
 #                diff = abs(layers[i] - value2)
 #                if diff < eps: #if they're within some epsilon of eachother
 #                    layers[i] = float(value2) 
 
-        #now get rid of duplicates
-        new_layer_values = []
+            #now get rid of duplicates
+            new_layer_values = []
 #        new_layer_values = set(new_layers)
 #        new_layer_values = [value for value in layers_inside if value not in new_layer_values]
-        for value in new_layers:
-            if value not in new_layer_values:
-                new_layer_values.append(value)        
+            for value in new_layers:
+                if value not in new_layer_values:
+                    new_layer_values.append(value)        
 #        for value in layers:
 #            if value not in new_layer_values:
 #                new_layer_values.append(value)
 
-        new_layer_values.sort()
+            new_layer_values.sort()
         
-        layers_inside = [ x for x in new_layer_values if x >= minLV and x <= maxLV ] #layers "inside" the unit cell
-        if len(layers_inside) % 2 == 1: 
-            print( "There's an odd number of layers in the {} direction.".format(plane) )
-            spin = []
-        else: #Cool, there's an even number of layers. Now check other conditions
-            new_layer_values.sort() #paranoia check
-            layers_inside.sort() #just to make sure...
-
-            #check if lattice vectors keep periodicity
-            tally = 0
-            for LV in LVs:
-                for i in range( len(layers_inside) ):
-                    diff = abs(LV - layers_inside[i])
-                    if diff < eps and i % 2 == 0: 
-                        tally += 1 #if the LV fits in one of the even layers, it's good.
-                        break  #Stop checking this LV
-            if tally < 3: #not all three LVs worked
-                print( "This lattice doesn't keep the periodicity for AFM." )
+            layers_inside = [ x for x in new_layer_values if x >= minLV and x <= maxLV ] #layers "inside" the unit cell
+            if len(layers_inside) % 2 == 1: 
+                print( "There's an odd number of layers in the {} direction.".format(plane) )
                 spin = []
+            else: #Cool, there's an even number of layers. Now check other conditions
+                new_layer_values.sort() #paranoia check
+                layers_inside.sort() #just to make sure...
 
-            elif tally == 3: #Cool, the lattices work. Now check the bases.. If an atom is spin up in the unit cell,
-                             #it has to be spin up in all the neighboring cells.
-                #assign spin to all the atoms in the unit cell
-                unit_cell_spin = zeros(self.nAtoms)
-                for i in range(indices[0],indices[1]):
-                    for j in range( len(new_layer_values) ):
-                        basis = bases[i]
-                        this_value = dot(basis,plane)
-                        diff = abs(this_value - new_layer_values[j])
-                        if diff < eps: #if the atom is in the layer we are investigating
-                            if j % 2 == 0: #if it's in an even layer, give it up spin
-                                unit_cell_spin[i] = 2.0
-                            else: #if it's in an odd layer, give it down spin
-                                unit_cell_spin[i] = -2.0
-                #assign spin to all the neighboring atoms
-                neighbor_spin = [ zeros(len(self.neighbors[x])) for x in range( indices[0],indices[1] ) ] #list of lists
-                for i in range(indices[0],indices[1]):
-                    for j in range( len(self.neighbors[i]) ):
-                        for k in range( len(new_layer_values) ):
-                            basis = bases[i]
-                            this_value = dot(basis, plane)
-                            diff = abs(this_value - new_layer_values[k])
-                            if diff < eps:
-                                if k % 2 == 0:
-                                    neighbor_spin[i][j] = 2.0
-                                else:
-                                    neighbor_spin[i][j] = -2.0
-                #now check that for each atom, the same atom in the neighboring cell has the same spin
-                success = True
-                for i in range(indices[0],indices[1]):
-                    this_success = True
-                    for j in range( len(self.neighbors[i]) ):
-                        if unit_cell_spin[i] != neighbor_spin[i][j]: #if even one neighbor fails this test
-                            this_success = False #the whole structure fails
-                    if not this_success: #if even one basis fails, the whole structure fails
-                        success = False
-                if not success:
-                    print( "This basis set doesn't keep the periodicity for AFM." )
+                #check if lattice vectors keep periodicity
+                tally = 0
+                for LV in LVs:
+                    for i in range( len(layers_inside) ):
+                        diff = abs(LV - layers_inside[i])
+                        if diff < eps and i % 2 == 0: 
+                            tally += 1 #if the LV fits in one of the even layers, it's good.
+                            break  #Stop checking this LV
+                if tally < 3: #not all three LVs worked
+                    print( "This lattice doesn't keep the periodicity for AFM." )
                     spin = []
-                else:
-                    print( "Success! Assigning spin..." )
-                    spin = unit_cell_spin
+
+                elif tally == 3: #Cool, the lattices work. Now check the bases..
+                                 #If an atom is spin up in the unit cell,
+                                 #it has to be spin up in all the neighboring cells.
+                                 #assign spin to all the atoms in the unit cell
+                    unit_cell_spin = zeros(self.nAtoms)
+                    for i in range(indices[0],indices[1]):
+                        for j in range( len(new_layer_values) ):
+                            basis = bases[i]
+                            this_value = dot(basis,plane)
+                            diff = abs(this_value - new_layer_values[j])
+                            if diff < eps: #if the atom is in the layer we are investigating
+                                if j % 2 == 0: #if it's in an even layer, give it up spin
+                                    unit_cell_spin[i] = 2.0
+                                else: #if it's in an odd layer, give it down spin
+                                    unit_cell_spin[i] = -2.0
+                    #assign spin to all the neighboring atoms
+                    neighbor_spin = [ zeros(len(self.neighbors[x])) for x in range( indices[0],indices[1] ) ] #list of lists
+                    for i in range(indices[0],indices[1]):
+                        for j in range( len(self.neighbors[i]) ):
+                            for k in range( len(new_layer_values) ):
+                                basis = bases[i]
+                                this_value = dot(basis, plane)
+                                diff = abs(this_value - new_layer_values[k])
+                                if diff < eps:
+                                    if k % 2 == 0:
+                                        neighbor_spin[i][j] = 2.0
+                                    else:
+                                        neighbor_spin[i][j] = -2.0
+                    #now check that for each atom, the same atom in the neighboring cell has the same spin
+                    success = True
+                    for i in range(indices[0],indices[1]):
+                        this_success = True
+                        for j in range( len(self.neighbors[i]) ):
+                            if unit_cell_spin[i] != neighbor_spin[i][j]: #if even one neighbor fails this test
+                                this_success = False #the whole structure fails
+                        if not this_success: #if even one basis fails, the whole structure fails
+                            success = False
+                    if not success:
+                        print( "This basis set doesn't keep the periodicity for AFM." )
+                        spin = []
+                    else:
+                        print( "Success! Assigning spin..." )
+                        spin = unit_cell_spin
         self.spins = spin
        
     #checks if a structure can be AFM

@@ -17,6 +17,8 @@ script_options = {
            "help": "Build a cif file for the POSCAR specified by the -POSCAR tag"},
     "-rgk": {"action": "store_true",
            "help": "Do you want to run the getKpoint script?."},
+    "-start": {"type": int, "default": 1,
+           "help": "Which structure do you want to start with"},
     "-s": {"action": "store_true",
            "help": "Run the setup method for each database."},
     "-x": {"action": "store_true",
@@ -106,7 +108,7 @@ def run(args):
         cdb.generate_cif(args.POSCAR)
 ##################################################################
     if args.setup_relax:
-        cdb.setupHandler('mtp','setup_relax')
+        cdb.setupHandler('mtp','setup_relax',start = args.start)
     if args.setup_select_add:
         cdb.setupHandler('mtp','setup_select_add')
     if args.add:

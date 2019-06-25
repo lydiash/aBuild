@@ -104,7 +104,7 @@ class MTP(object):
         settings["n_species"] = nSpecies
         from jinja2 import Environment, PackageLoader  # Package for building files from a template
         env = Environment(loader=PackageLoader('aBuild','templates'))
-        print(self.settings)
+        #print(self.settings)
         template = env.get_template(self.settings['pot']) #"pot.mtp"
 
 
@@ -247,7 +247,7 @@ class MTP(object):
     #               3- mlp calc-grade is performed in preparation for the relaxation.
     #                   We just run this interactively because it doesn't take too long.
     #               4- A job submission script is generated.
-    def setup_relax(self,enumDicts,species,freshStart = False):
+    def setup_relax(self,enumDicts,species,freshStart = False,start = 1):
         from os import remove,path,rename
         from aBuild.fitting.mtp import MTP
         from glob import glob
@@ -274,13 +274,13 @@ class MTP(object):
         # 1.
         if not torelax:  #This must be the first iteration
             print('Building a new to-relax.cfg file')
-            self.build_ToRelax(enumDicts,species)
+            self.build_ToRelax(enumDicts,species,start = start)
 
         # 2.
         else: # What iteration is it?
             if freshStart:
                 remove(filePath)
-                self.build_ToRelax(enumDicts,species)
+                self.build_ToRelax(enumDicts,species, start = start)
          #   elif unrelaxed:  #Iteration must be > 1
          ##       unrelaxedFiles = glob(path.join(fittingRoot,"unrelaxed.cfg_*"))
           ##      cat(unrelaxedFiles,path.join(fittingRoot,"to-relax.cfg"))
@@ -320,7 +320,7 @@ class MTP(object):
         
 
 
-    def build_ToRelax(self,enumDicts,species):
+    def build_ToRelax(self,enumDicts,species, start = None):
         from aBuild.enumeration import Enumerate
         from aBuild.utility import unpackProtos,getAllPerms,getProtoPaths
         from aBuild.database.crystal import Crystal
@@ -330,7 +330,7 @@ class MTP(object):
         nEnums = len(enumDicts)
         knary = len(species)
         for ilat  in range(nEnums):
-            lat = enumDicts[ilat]["lattice"]
+            lat = enumDicts[ilat]["name"]
             
             if lat == 'protos': #for prototype structures, we want to make sure that the mindist is okay
                 structures = getProtoPaths(knary)

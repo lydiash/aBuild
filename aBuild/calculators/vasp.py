@@ -78,7 +78,10 @@ class VASP:
                 specs["incar"]["magmom"] +=  ' '.join(map(str, [ specs["FM"][species] ] * self.crystal.atom_counts[idx]))
                 specs["incar"]["magmom"] += ' '
 
-        
+    # VASP does not like to have zeros in the atom_counts list
+    # but I want to keep track of which atoms are in the crystal.
+    # This routine is just here to remove any zeros before I write to
+    # the POSCAR file.        
     def check_atom_counts_zero(self):
         from numpy import array
         
@@ -142,6 +145,22 @@ class VASP:
                 sgrcon = grep('OUTCAR','SGRCON')
                 finalenergyline = grep('OUTCAR','free  energy')
 
+                # Check to make sure I've converged electonically.
+                if grep('OSZICAR','DAV:') != []:
+                    electronicIteration = int(grep('OSZICAR','DAV:')[-1].split()[1])
+                else:
+                    electronicIteration = 0
+                if grep('INCAR','nsw') != []:
+                    nsw = int(grep('INCAR','nsw')[0].split('=')[1])
+                else:
+                    nsw = 0
+                if grep('OSZICAR','F=') != []:
+                    ionicIteration = int(grep('OSZICAR','F=')[-1].split()[0])
+                else:
+                    ionicIteration = 0
+                if ionicIteration == nsw and electronicIteration == 60:
+                    return 'unconverged'
+                
                 ''' Let's first check to see if this is a static
                 calculation or a relaxation because the tag 
                 to check for is different.'''
@@ -676,17 +695,33 @@ class POSCAR(object):
         self.label = poscarlines[0].strip().split('\n')[0]
         self.latpar = poscarlines[1]
         self.Lv = poscarlines[2:5]
-        self.atom_counts = poscarlines[5].strip()
-        self.coordsys = poscarlines[6].split('\n')[0]
+
+        #CONTCARs have species names in the next line, but typical POSCARs dont.  Let's
+        # Figure out which one we have
+
+        if any(c.isalpha() for c in poscarlines[5].strip()):  #It's a CONTCAR
+            countsLine = 6
+            coordSysLine = 7
+            basisStartLine = 8
+            
+
+        else: #It's a POSCAR
+            countsLine = 5
+            coordSysLine = 6
+            basisStartLine = 7
+            
+        self.atom_counts = poscarlines[countsLine].strip()
+        self.coordsys = poscarlines[coordSysLine].split('\n')[0]
 
         nBas = sum(map(int, self.atom_counts.split()))
-        self.Bv = poscarlines[7:7+nBas]
+        self.Bv = poscarlines[basisStartLine:basisStartLine+nBas]
         
-        if 7 + 2*nBas < len(poscarlines):
+        if basisStartLine + 2*nBas < len(poscarlines):
             #We could still have concentration information in the POSCAR
-            self.concentrations = poscarlines[7+nBas:7+2*nBas]
+            self.concentrations = poscarlines[basisStartLine+nBas:basisStartLine+2*nBas]
         else:
             self.concentrations = ""
+
 
     def _init_lattice(self, lattice):
         """Initializes the POSCAR lines from a Lattice instance."""
