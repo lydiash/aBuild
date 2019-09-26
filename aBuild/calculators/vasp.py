@@ -39,8 +39,20 @@ class VASP:
                 else:
                     self.crystal = Crystal(specs["crystal"],specs["species"])
                 self.handleSpecialTags(specs)
+<<<<<<< HEAD
                     
                 self.INCAR = INCAR(specs["incar"])
+=======
+                self.INCAR = INCAR(specs["incar"])
+            
+###############################################################################
+                if len(self.crystal.spins) != 0: #if there's spins on the crystal object, this means it's got some sort of magnetic moments. Make INCAR tags for this
+                    spin_line = ''
+                    for i,val in enumerate(self.crystal.spins):
+                        spin_line += str(val) + ' '
+                    self.INCAR.add_tag("MAGMOM",spin_line)
+###############################################################################
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
             else:
                 msg.fatal("I don't have all the necessary information to initialize: {}".format(specs.keys()))
         #Initialize from a path
@@ -54,19 +66,27 @@ class VASP:
         if directory is not None:
             self.directory = directory
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
     def _all_present(self,specs):
         required = ["incar","potcars","kpoints","crystal","species"]
         for tag in required:
             if tag not in specs.keys():
                 return False
         return True
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
     def handleSpecialTags(self,specs):
         special = ["AFM","FM"]
         if "FM" in specs.keys():
             specs["incar"]["ispin"] = 2
             specs["incar"]["magmom"] = ''
+<<<<<<< HEAD
             
             for idx,species in enumerate(sorted(specs["FM"],reverse = True)):
                 specs["incar"]["magmom"] +=  ' '.join(map(str, [ specs["FM"][species] ] * self.crystal.atom_counts[idx]))
@@ -93,6 +113,21 @@ class VASP:
         print(self.crystal.atom_counts, 'atom counts')
         print(any(self.crystal.atom_counts == 0))
         if any(self.crystal.atom_counts == 0):
+=======
+
+            for idx,species in enumerate(sorted(specs["FM"],reverse = True)):
+                specs["incar"]["magmom"] +=  ' '.join(map(str, [ specs["FM"][species] ] * self.crystal.atom_counts[idx]))
+                specs["incar"]["magmom"] += ' '
+
+    # VASP does not like to have zeros in the atom_counts list
+    # but I want to keep track of which atoms are in the crystal.
+    # This routine is just here to remove any zeros before I write to
+    # the POSCAR file.        
+    def check_atom_counts_zero(self):
+        from numpy import array
+        
+        if any([True if i == 0 else False for i in self.crystal.atom_counts] ): ###I changed this
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
             from numpy import  where
             idxKeep = list(where( self.crystal.atom_counts > 0)[0])
             self.POTCAR.species = list(array(self.POTCAR.species)[idxKeep])
@@ -131,9 +166,15 @@ class VASP:
             kpoints = self._check_file_exists('KPOINTS')
             potcar = self._check_file_exists('POTCAR')
             poscar = self._check_file_exists('POSCAR')
+<<<<<<< HEAD
             output = self._check_file_exists('vasp_output')
             oszicar = self._check_file_exists('OSZICAR')
             
+=======
+            output = self._check_file_exists('output')
+            oszicar = self._check_file_exists('OSZICAR')
+
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
 
             inputs = incar and kpoints and potcar and poscar
 
@@ -150,10 +191,13 @@ class VASP:
                 '''
             elif outcar: # OUTCAR present
 
+<<<<<<< HEAD
                 sgrcon = grep('vasp_output','SGRCON')
                 tooclose = grep('vasp_output','HOPE')
                 finalenergyline = grep('OUTCAR','free  energy')
                 generalerror = grep('vasp_output','ERROR')
+=======
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
                 # Check to make sure I've converged electonically.
                 if grep('OSZICAR','DAV:') != []:
                     electronicIteration = int(grep('OSZICAR','DAV:')[-1].split()[1])
@@ -161,6 +205,7 @@ class VASP:
                     electronicIteration = 0
                 if grep('INCAR','nsw') != []:
                     nsw = int(grep('INCAR','nsw')[0].split('=')[1])
+<<<<<<< HEAD
                     if nsw == 0:
                         nsw = 1
                 else:
@@ -176,6 +221,17 @@ class VASP:
                 if ionicIteration == nsw and int(electronicIteration) == int(maxelectronic):
                     return 'unconverged'
                     
+=======
+                else:
+                    nsw = 0
+                if grep('OSZICAR','F=') != []:
+                    ionicIteration = int(grep('OSZICAR','F=')[-1].split()[0])
+                else:
+                    ionicIteration = 0
+                if ionicIteration == nsw and electronicIteration == 60:
+                    return 'unconverged'
+                
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
                 ''' Let's first check to see if this is a static
                 calculation or a relaxation because the tag 
                 to check for is different.'''
@@ -488,7 +544,14 @@ class INCAR:
         else:
             self.setDefaultTags()
 
+<<<<<<< HEAD
                 
+=======
+#################################################
+    def add_tag(self,key,value):
+        self.tags[key] = value
+#################################################
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
         
     def _init_file(path,filename = 'INCAR'):
         with open(path,'r') as f:
@@ -749,6 +812,7 @@ class POSCAR(object):
             self.concentrations = poscarlines[basisStartLine+nBas:basisStartLine+2*nBas]
         else:
             self.concentrations = ""
+
 
     def _init_lattice(self, lattice):
         """Initializes the POSCAR lines from a Lattice instance."""

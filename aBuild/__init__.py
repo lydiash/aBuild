@@ -28,6 +28,11 @@ class Controller(object):
 
         # Read the input file
         self.specs = read(root,inputFile)
+#####################################################################################
+        self.special_settings = {}
+        if self.specs["calculator"]["vasp"]["AFM"]: #if there's an AFM section in the YAML
+            self.special_settings["AFM"] = self.specs["calculator"]["vasp"]["AFM"] #save the AFM settings
+#####################################################################################
 
         if "directory" not in self.specs["calculator"]["vasp"]["potcars"] or self.specs["calculator"]["vasp"]["potcars"]["directory"] is None:
             print("You did not provide a directory for the POTCARS. Using the environment variable that I found: {}".format(config.POTCAR_DIR))
@@ -104,6 +109,24 @@ class Controller(object):
             import sys
             sys.exit()
 
+    @property
+    def name(self):
+        if "name" in self.specs[self.dataset]:
+            savedNames = self.specs[self.dataset]["name"]
+            for idx,name in enumerate(savedNames):
+                if name is None:
+                    savedNames[idx] = self.specs[self.database]["lattice"][idx]
+            return savedNames#self.specs[self.dataset]["name"]
+        else:
+            return [None for k in range(self.nEnums)]
+
+    @property
+    def coordsys(self):
+        if "coordsys" in self.specs[self.dataset]:
+            return self.specs[self.dataset]["coordsys"]
+        else:
+            return [None for k in range(self.nEnums)]
+
     
     @property
     def name(self):
@@ -146,6 +169,8 @@ class Controller(object):
             edict["concs"] = self.concRestrictions[i]
             edict["root"] = self.root
             edict["eps"] = 1e-3
+            edict["coordsys"] = self.coordsys[i]
+            edict["name"] = self.name[i]
             edicts.append(edict)
         
         return edicts
@@ -168,12 +193,23 @@ class Controller(object):
 
         self.dataset = "trainingset"
         trainingRoot = path.join(self.root,'training_set')
+<<<<<<< HEAD
         trainingSet = dataset(self.enumDicts,self.species,restrictions = 'AFM' in self.calculator[self.calculator["active"]])
+=======
+############################################################################3
+        self.special_settings["eps"] = 1e-3 #epsilon for checking if atoms are in same layer
+############################################################################
+        trainingSet = dataset(self.enumDicts,self.species,special_settings = self.special_settings)######### ADDED SPECIAL_SETTINGS
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
         trainingSet.buildFolders(trainingRoot,self.calculator,runGetKpoints = runGetKpoints)
         
         
 
+<<<<<<< HEAD
     def setupHandler(self,model,tag,start = 1,end = None):
+=======
+    def setupHandler(self,model,tag,start = 1):
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
         from aBuild.fitting.mtp import MTP
         from os import path
         
@@ -181,9 +217,16 @@ class Controller(object):
         trainingRoot = path.join(self.root, 'training_set')
 
         self.dataset = 'gss'
+<<<<<<< HEAD
         thisMTP = MTP(fittingRoot,settings=self.fitting)
         handler = {'setup_train':lambda: thisMTP.setup_train(trainingRoot,self.species),
                    'setup_relax':lambda:thisMTP.setup_relax(self.enumDicts,self.species,AFM = 'AFM' in self.calculator[self.calculator["active"]].keys(), start = start,end = end),
+=======
+        
+        thisMTP = MTP(fittingRoot,settings=self.fitting,special_settings=self.special_settings)######ADDED SPECIAL_SETTINGS
+        handler = {'setup_train':lambda: thisMTP.setup_train(trainingRoot,self.species),
+                   'setup_relax':lambda:thisMTP.setup_relax(self.enumDicts,self.species,start = start),
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
                     'setup_select_add':lambda :thisMTP.setup_select()}
         handler[tag]()
 
@@ -194,7 +237,14 @@ class Controller(object):
 
         newTraining = path.join(self.root,'fitting','mtp','new_training.cfg')
         trainingRoot = path.join(self.root,'training_set')
+<<<<<<< HEAD
         dSet = dataset(newTraining,self.species,lFormat = 'mlp')
+=======
+############################################################################3
+        self.special_settings["eps"] = 5e-2 #epsilon for checking if atoms are in same layer
+############################################################################
+        dSet = dataset(newTraining,self.species,special_settings = self.special_settings,lFormat = 'mlpselect')######### ADDED SPECIAL_SETTINGS
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
         dSet.buildFolders(trainingRoot,self.calculator,foldername = 'A')
         
     def statusReport(self):
@@ -207,7 +257,11 @@ class Controller(object):
             activedirs = glob("A.*")
 
         dirs = [path.join(trainingRoot,x) for x in enumdirs + activedirs]
+<<<<<<< HEAD
         stat = {'done':[],'running':[], 'not started': [], 'too long':[], 'not setup':[],'warning':[],'idk':[],'unconverged':[],'sgrcon':[],'error':[]}
+=======
+        stat = {'done':[],'running':[], 'not started': [], 'too long':[], 'not setup':[],'warning':[],'idk':[],'unconverged':[]}
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
         for dir in dirs:
             thisVASP = VASP(dir,systemSpecies = self.species)
             stat[thisVASP.status()].append(dir.split('/')[-1])
@@ -228,12 +282,17 @@ class Controller(object):
         msg.info(' '.join(stat['idk']))
         msg.info('Unconverged (' + str(len(stat['unconverged'])) + ')')
         msg.info(' '.join(stat['unconverged']))
+<<<<<<< HEAD
         msg.info('SGRCON error (' + str(len(stat['sgrcon'])) + ')')
         msg.info(' '.join(stat['sgrcon']))
         msg.info('Unknown error (' + str(len(stat['error'])) + ')')
         msg.info(' '.join(stat['error']))
 
     def gatherResults(self,file=None, folder = None):
+=======
+
+    def gatherResults(self):
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
         from os import path
         from glob import glob
         from aBuild.database.dataset import dataset
@@ -260,7 +319,21 @@ class Controller(object):
             msg.fatal('data file does not exist')
 
         data = dataset(dataFile,self.species)
+<<<<<<< HEAD
         data.generateConvexHullPlot(plotAll = plotAll)
+=======
+        data.generateConvexHullPlot()
+############################################################
+    #generate a .cif file from the POSCAR provided
+    def generate_cif(self,groundStatePoscar):
+        from os import path
+        from aBuild.database.crystal import Crystal
+        
+        #generate the .cif file
+        input = Crystal(groundStatePoscar,self.species)
+        input.generate_cif()            
+############################################################
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
             
     def errorsReport(self,datafile = None, predictFile = None):
         from aBuild.database.dataset import dataset

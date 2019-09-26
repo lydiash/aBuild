@@ -13,16 +13,20 @@ script_options = {
            "help": "Build input files for fitting."},
     "-report": {"action": "store_true",
            "help": "Build a report of the results of the calculations."},
+<<<<<<< HEAD
     "-errorhist": {"action": "store_true",
            "help": "Build a report of the results of the calculations."},
     "-chull": {"action": "store_true",
            "help": "Build a report of the results of the calculations."},
+=======
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
     "-cif": {"action": "store_true",
            "help": "Build a cif file for the POSCAR specified by the -POSCAR tag"},
     "-rgk": {"action": "store_true",
            "help": "Do you want to run the getKpoint script?."},
     "-start": {"type": int, "default": 1,
            "help": "Which structure do you want to start with"},
+<<<<<<< HEAD
     "-end": {"type": int, "default": None,
            "help": "Which structure do you want to start with"},
     "-file": {"type": str, "default": None,
@@ -31,6 +35,8 @@ script_options = {
            "help": "Specify a file as input"},
     "-predictfile": {"type": str, "default": None,
            "help": "Specify a file as input"},
+=======
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
     "-s": {"action": "store_true",
            "help": "Run the setup method for each database."},
     "-x": {"action": "store_true",
@@ -112,9 +118,21 @@ def run(args):
         cdb.setup_training_set(runGetKpoints = args.rgk)
 
     if args.setup_train:
+<<<<<<< HEAD
         cdb.setupHandler('mtp',"setup_train")
     if args.setup_relax:
         cdb.setupHandler('mtp',"setup_relax",start = args.start,end = args.end)
+=======
+        cdb.setupHandler('mtp','setup_train')
+    if args.status:
+        cdb.statusReport()
+##################################################################
+    if args.cif:
+        cdb.generate_cif(args.POSCAR)
+##################################################################
+    if args.setup_relax:
+        cdb.setupHandler('mtp','setup_relax',start = args.start)
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
     if args.setup_select_add:
         cdb.setupHandler('mtp',"setup_select_add")
 

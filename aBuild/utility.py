@@ -133,7 +133,10 @@ def vec_in_list(vec,veclist):
     else:
         return False
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
 def map_into_cell(vec):
     from math import floor
     from numpy import array
@@ -150,7 +153,10 @@ def map_into_cell(vec):
             new_point.append(i)
     return array(new_point)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
 def _chop(epsilon, const, i, j):
     """Sets the value of i[j] to exactly 'const' if its value already lies
     within 'epsilon' of 'const'."""
@@ -172,6 +178,9 @@ def _chop_all(epsilon, i):
         _chop(epsilon, -0.5, i, j)
 
     return i
+<<<<<<< HEAD
 
 
     
+=======
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d

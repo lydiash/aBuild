@@ -5,13 +5,16 @@ class MTP(object):
 	
 
 
-    def __init__(self,root,settings = None):
+    def __init__(self,root,settings = None,special_settings=None): ############ADDED SPECIAL_SETTINGS
         from os import makedirs,path
         if not path.isdir(root):
             makedirs(root)
 
         self.root = root
         self.settings = settings
+###################################################################################################
+        self.special_settings = special_settings
+###############################################################################################
         #        self.trainingSet = trainingSet  # Should be a list of Crystal objects
 
     @property
@@ -101,7 +104,7 @@ class MTP(object):
         settings["n_species"] = nSpecies
         from jinja2 import Environment, PackageLoader  # Package for building files from a template
         env = Environment(loader=PackageLoader('aBuild','templates'))
-        print(self.settings)
+        #print(self.settings)
         template = env.get_template(self.settings['pot']) #"pot.mtp"
 
 
@@ -252,7 +255,11 @@ class MTP(object):
     #               3- mlp calc-grade is performed in preparation for the relaxation.
     #                   We just run this interactively because it doesn't take too long.
     #               4- A job submission script is generated.
+<<<<<<< HEAD
     def setup_relax(self,enumDicts,species,freshStart = False,AFM = False,start = 1,end = None):
+=======
+    def setup_relax(self,enumDicts,species,freshStart = False,start = 1):
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
         from os import remove,path,rename
         from aBuild.fitting.mtp import MTP
         from glob import glob
@@ -279,13 +286,21 @@ class MTP(object):
         # 1.
         if not torelax:  #This must be the first iteration
             print('Building a new to-relax.cfg file')
+<<<<<<< HEAD
             self.build_ToRelax(enumDicts,species,AFM = AFM,start = start,end = end)
+=======
+            self.build_ToRelax(enumDicts,species,start = start)
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
 
         # 2.
         else: # What iteration is it?
             if freshStart:
                 remove(filePath)
+<<<<<<< HEAD
                 self.build_ToRelax(enumDicts,species,AFM = AFM,start = start,end = end)
+=======
+                self.build_ToRelax(enumDicts,species, start = start)
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
          #   elif unrelaxed:  #Iteration must be > 1
          ##       unrelaxedFiles = glob(path.join(fittingRoot,"unrelaxed.cfg_*"))
           ##      cat(unrelaxedFiles,path.join(fittingRoot,"to-relax.cfg"))
@@ -325,7 +340,11 @@ class MTP(object):
         
 
 
+<<<<<<< HEAD
     def build_ToRelax(self,enumDicts,species,AFM = False,start = 1,end = None):
+=======
+    def build_ToRelax(self,enumDicts,species, start = None):
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
         from aBuild.enumeration import Enumerate
         from aBuild.utility import unpackProtos,getAllPerms,getProtoPaths
         from aBuild.database.crystal import Crystal
@@ -337,7 +356,7 @@ class MTP(object):
         for ilat  in range(nEnums):
             lat = enumDicts[ilat]["name"]
             
-            if lat == 'protos':
+            if lat == 'protos': #for prototype structures, we want to make sure that the mindist is okay
                 structures = getProtoPaths(knary)
 
                 for struct in structures:
@@ -353,6 +372,7 @@ class MTP(object):
                         print(thisCrystal.title)
                         mindist = thisCrystal.minDist
                         print(mindist, "actual min dist<-----------------------------------------------------------------------------------------------------")
+<<<<<<< HEAD
 
                         if mindist > 2 and thisCrystal.nAtoms < 60:
                             if not AFM:
@@ -376,6 +396,38 @@ class MTP(object):
                                     with open(path.join(self.root,'to-relax.cfg_' + str(start)),'a+') as f:
                                         f.writelines('\n'.join(superCrystal.lines('mtprelax') ))
                                # break
+=======
+                        print(thisCrystal.appMinDist, 'appropriate min distance')
+################################### my changes ################################################################
+#                        thisCrystal.validateCrystal()
+                        if self.special_settings["AFM"]: #if there's a AFM dictionary passed in with special_settings
+                            print("Checking if this structure can be AFM")
+                            AFMsuccess = thisCrystal.checkAFM(self.special_settings["AFM"]["plane"],self.special_settings["AFM"]["spin_type"])#,self.special_settings["eps"] )
+                            if not AFMsuccess:
+                                print("Checking super periodics for this structure")
+                                thisSuper = thisCrystal.superPeriodics(size=2,special_settings=self.special_settings)
+                                if thisSuper is not None: #if it returned a superPeriodic, this is the crytal we want now
+                                    AFMsuccess = True
+                                    thisCrystal = thisSuper
+                            if AFMsuccess and mindist > 2 and thisCrystal.nAtoms < 60:
+                                print("Success! Adding structure to to-relax.cfg.")
+                                with open(path.join(self.root,'to-relax.cfg'),'a+') as f: #write this structure to the file
+                                    f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
+                            else:
+                                print("Something is wrong with this prototype structure. (min dist or nAtoms). Not adding to to-relax.")
+                        else: #if there's no special AFM settings, check other things
+################################################################################################################               
+#I increased the indention for this block
+                            if mindist > 2 and thisCrystal.nAtoms < 60:
+                                print('Adding to file')
+        #print("Atom counts after scramble {}".format(thisCrystal.atom_counts))
+                                with open(path.join(self.root,'to-relax.cfg'),'a+') as f:
+                                    f.writelines('\n'.join(thisCrystal.lines('mtprelax') ) )
+###########################################my changes##########################################################
+                            else:
+                                print("Something is wrong with this prototype structure. (min dist or nAtoms). Not adding to to-relax.")
+################################################################################################################                
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
             else:
                 enumLattice = Enumerate(enumDicts[ilat])
                 if end == None:
@@ -408,8 +460,31 @@ class MTP(object):
                         
                     #                    print(thisCrystal.appMinDist,' approp Min Dist')
  #                   print(thisCrystal.minDist, 'actual min dist')
+<<<<<<< HEAD
 #                    with open(path.join(self.root,'to-relax.cfg'),'a+') as f:
 #                        f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
+=======
+####################################### my changes ###########################################################
+                    if self.special_settings["AFM"]: #if there's a AFM dictionary passed in with special_settings
+                        #check if this crystal can be AFM
+                        print("Checking if {} structure {} can be AFM".format(lat,struct))
+                        AFMsuccess = thisCrystal.checkAFM(self.special_settings["AFM"]["plane"],self.special_settings["AFM"]["spin_type"])#,self.special_settings["eps"] )
+                        if not AFMsuccess:
+                            print("Checking super periodics for this structure")
+                            thisSuper = thisCrystal.superPeriodics(size=2,special_settings=self.special_settings)
+                            if thisSuper is not None: #if it returned a superPeriodic, this is the crytal we want now
+                                AFMsuccess = True
+                                thisCrystal = thisSuper
+                        if AFMsuccess: 
+                            print("Success! Adding {} structure {} to to-relax.cfg.".format(lat,struct))
+                            with open(path.join(self.root,'to-relax.cfg'),'a+') as f: #write this structure to the file
+                                f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
+                    else: #if there's no special AFM settings, write to the file
+################################################################################################################
+#I increased the indention of this section
+                        with open(path.join(self.root,'to-relax.cfg'),'a+') as f:
+                            f.writelines('\n'.join(thisCrystal.lines('mtprelax') ))
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
 
                     delpath = path.join(enumLattice.root,"poscar.{}.{}".format(lat,struct))
                     remove(delpath)

@@ -10,8 +10,17 @@ root: '~/AgAu'
 # be applied to *all* the VASP calculations in all databases. They can
 # be overridden in each database.
 calculator:
+<<<<<<< HEAD
   active: 'vasp' 
+=======
+  active: 'vasp_and_lammps_and_qe'
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
   vasp:
+#####################################################################################
+    AFM: #if you'd like to make a structure antiferromagnetic, specify the details here
+      plane: [1,0,0] #plane to align spin on 
+      spin_type: 0 #which atom gets the spin. Remember the species list is in reverse alphabetical order
+#####################################################################################
     incar:
       prec: 'a'
       #  isym: 0
@@ -88,6 +97,7 @@ trainingset: #used to be database
     - "D"
   name:
     - "bcc"
+<<<<<<< HEAD
     - "fcc"
     - "hcp"
     - "fluorite"
@@ -95,6 +105,28 @@ trainingset: #used to be database
   nconfigs: [1,0,0,0]  # One number per lattice defined in the lattice variable
 #  siteRestrictions: [['0/1'],['0/1','0/1']]
   sizes: [[1,16],[1,16],[1,8],[1,6]]
+=======
+    - [[0.5,0.5,0],[0.5,0,0.5],[0,0.5,0.5]]
+  basis:
+    - None
+    - None
+    - None
+    - [[0,0,0],[0.25,0.25,0.25],[0.75,0.75,0.75]]
+  coordsys:
+    - "D"
+    - "D"
+    - "D"
+    - "D"
+  name:
+    - None
+    - None
+    - None
+    - "fluorite"
+#  concs: [ [], [[0,1,2] , [0,1,4]] ]
+  nconfigs: [2,2,2,2]  # One number per lattice defined in the lattice variable
+#  siteRestrictions: [['0/1'],['0/1','0/1']]
+  sizes: [[1,12],[1,6],[1,12],[1,8]]
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
 #        ran_seed: 10
 gss: # Structures to put in the mtp relax set
   name: 'gss'
@@ -118,10 +150,37 @@ gss: # Structures to put in the mtp relax set
     - "fluorite"
     - "fcc"
     - "hcp"
+<<<<<<< HEAD
 #  concs: [ [[0,1,2],[1,2,2]], [[0,1,2],[1,2,2]], [[0,1,2],[1,2,2]], [[0,1,2],[1,2,2]], [[0,1,2],[1,2,2]] ]
 #  siteRestrictions: [['0/1'],['0/1','0/1']]
   sizes: [[1,14],[1,8],[1,14],[1,6],all]
   nconfigs: [50000,50000,50000,0,0]
+=======
+    - "protos"
+    - [[0.5,0.5,0],[0.5,0,0.5],[0,0.5,0.5]]
+  basis:
+    - None
+    - None
+    - None
+    - None
+    - [[0,0,0],[0.25,0.25,0.25],[0.75,0.75,0.75]]
+  coordsys:
+    - "D"
+    - "D"
+    - "D"
+    - "C"
+    - "D"
+  name:
+    - None
+    - None
+    - None
+    - None
+    - "fluorite"
+#  concs: [ [], [[0,1,2] , [0,1,4]] ]
+#  siteRestrictions: [['0/1'],['0/1','0/1']]
+  sizes: [[1,12],[1,6],[1,12],[1,10],all]
+  nconfigs: [6,6,6,all,6]
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
 holdout:
   name: 'holdout'
   lattice:

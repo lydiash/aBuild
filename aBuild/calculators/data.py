@@ -11,8 +11,13 @@ latpars ={"H": 3.75,"He": 3.57,"Li": 3.49,"Be": 2.29,"B": 8.73,"C": 3.57,"N": 4.
           "Ta": 3.31,"W": 3.16,"Re": 2.76,"Os": 2.64,"Ir": 3.84,"Pt": 3.92,"Au": 4.08,
           "Hg": 2.99,"Tl": 3.46,"Pb": 4.95,"Bi": 4.75}
 
+<<<<<<< HEAD
 
     # These are experimental values of the volume per atom 
+=======
+    
+    # These are experimental values of the volume per atom
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
 element_volume ={"H":37.2958,"He":32.1789,"Li":21.2543,"Be":8.49323,"B":7.24205,"C":5.68741,
                  "N":46.6002,"O":22.2802,"F":17.0258,"Ne":21.7346,"Na":23.2596,"Mg":23.3928,
                  "Al":16.6075,"Si":7.8511,"P":9.1459,"S":17.1672,"Cl":35.2074,"Ar":36.3829,
@@ -24,9 +29,17 @@ element_volume ={"H":37.2958,"He":32.1789,"Li":21.2543,"Be":8.49323,"B":7.24205,
                  "In":26.6861,"Sn":29.3238,"Sb":27.1733,"Te":62.3227,"I":24.3807,"Xe":59.582,
                  "Cs":110.723,"Ba":63.253,"Hf":23.1748,"Ta":18.1323,"W":15.7772,"Re":14.8694,
                  "Os":14.5485,"Ir":14.1558,"Pt":15.0591,"Au":16.9793,"Hg":27.6914,"Tl":29.2949,
+<<<<<<< HEAD
                  "Pd":30.3218,"Bi":31.2849,"U":13.6389, "O":13.6389}#"U":50.84, "O":15.86}
 
 #volumeperatom = {"Au": latpars["Au"]**3/4, "Ag": latpars["Ag"]**3/4, "Cu": latpars["Cu"]**3/4}
+=======
+                 "Pd":30.3218,"Bi":31.2849,"U":50.84, "O":15.86}
+
+#volumeperatom = {"Au": latpars["Au"]**3/4, "Ag": latpars["Ag"]**3/4, "Cu": latpars["Cu"]**3/4}
+
+#crystalStructs = {"Au": "fcc", "Ag":"fcc", "Pt":"fcc","Cu":"fcc"}
+>>>>>>> 03893ba98eddd6991de841e54e88613fa8b4165d
 
 crystalStructs = {"Au": "fcc", "Ag":"fcc", "Pt":"fcc","Cu":"fcc", 'U':'ortho', 'O':''}
 from numpy.linalg import norm 
